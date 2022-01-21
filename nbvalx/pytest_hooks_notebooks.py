@@ -175,6 +175,7 @@ else:
                             cell.source = "%%px\n" + cell.source
                     # Add a cell on top to start a new ipyparallel cluster
                     cluster_start_code = f"""import ipyparallel as ipp
+
 cluster = ipp.Cluster(engines="MPI", profile="mpi", n={opt.np})
 cluster.start_and_connect_sync()"""
                     cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
@@ -183,6 +184,7 @@ cluster.start_and_connect_sync()"""
                     # Add a further cell on top to disable garbage collection
                     gc_disable_code = """%%px
 import gc
+
 gc.disable()"""
                     gc_disable_cell = nbformat.v4.new_code_cell(gc_disable_code)
                     gc_disable_cell.id = "gc_disable"
