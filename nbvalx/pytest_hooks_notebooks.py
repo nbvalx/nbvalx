@@ -66,13 +66,17 @@ else:
         dirpaths = list()
         for arg in session.config.args:
             dirpath, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
-            dirpaths.append(dirpath)
+            dirpaths.append(str(dirpath))
         for dirpath in dirpaths:
-            for direntry in _pytest.pathlib.visit(str(dirpath), session._recurse):
-                if not direntry.is_file():
-                    continue
-
-                filepath = direntry.path
+            files = list()
+            if os.path.isdir(dirpath):
+                for direntry in _pytest.pathlib.visit(dirpath, session._recurse):
+                    if direntry.is_file():
+                        files.append(str(direntry.path))
+            else:  # pragma: no cover
+                assert os.path.isfile(dirpath)
+                files.append(dirpath)
+            for filepath in files:
                 if fnmatch.fnmatch(filepath, "**/*.ipynb") and not fnmatch.fnmatch(
                         filepath, "**/.ipynb_tags/*.ipynb"):
                     # Read in notebook
