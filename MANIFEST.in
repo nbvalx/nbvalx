@@ -1,0 +1,2 @@
+recursive-include nbvalx *.py
+global-exclude __pycache__ *.pyc
