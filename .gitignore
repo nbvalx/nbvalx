@@ -1,0 +1,15 @@
+*~
+*.bak
+*.cache
+*.egg
+*.egg-info
+*.h5
+*.nbc
+*.nbi
+*.py[cod]
+*.xdmf
+.coverage*
+.eggs
+.pytest_cache
+build
+dist
