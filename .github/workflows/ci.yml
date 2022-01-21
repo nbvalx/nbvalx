@@ -61,10 +61,10 @@ jobs:
           pattern: "tests/notebooks/data/**/*.ipynb"
       - name: Run notebooks tests (serial, without collapse)
         run: |
-          COVERAGE_FILE=.coverage_notebooks_serial_without_collapse python3 -m coverage run --source=nbvalx -m pytest -n auto --dist loadscope tests/notebooks
+          COVERAGE_FILE=.coverage_notebooks_serial_without_collapse python3 -m coverage run --source=nbvalx -m pytest tests/notebooks
       - name: Run notebooks tests (serial, with collapse)
         run: |
-          COVERAGE_FILE=.coverage_notebooks_serial_with_collapse python3 -m coverage run --source=nbvalx -m pytest -n auto --dist loadscope --tag-collapse tests/notebooks
+          COVERAGE_FILE=.coverage_notebooks_serial_with_collapse python3 -m coverage run --source=nbvalx -m pytest --tag-collapse tests/notebooks
       - name: Run notebooks tests (parallel)
         run: |
           COVERAGE_FILE=.coverage_notebooks_parallel python3 -m coverage run --source=nbvalx -m pytest --np 2 tests/notebooks
