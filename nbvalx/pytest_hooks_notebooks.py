@@ -157,62 +157,60 @@ else:
                         os.makedirs(tags_dir, exist_ok=True)
                         with open(ipynb_path, "w") as f:
                             nbformat.write(nb_tag, str(ipynb_path))
-            # Prevent collecting when only asked to create notebooks
-            if tag_action != "create-notebooks":
-                norecursepatterns.remove(".ipynb_tags")
-                norecursepatterns.append(os.path.join(".ipynb_tags", f"collapse_{not tag_collapse}"))
+            # Allow collecting the create copies, but only for the current value of tag_collapse
+            norecursepatterns.remove(".ipynb_tags")
+            norecursepatterns.append(os.path.join(".ipynb_tags", f"collapse_{not tag_collapse}"))
 
     def collect_file(path: py.path.local, parent: _pytest.nodes.Collector) -> nbval.plugin.IPyNbFile:
         """Collect IPython notebooks using a custom pytest nbval hook."""
-        tag_action = parent.config.option.tag_action
-        if tag_action != "create-notebooks":
-            opt = parent.config.option
-            assert not opt.nbval, "--nbval is implicitly enabled, do not provide it on the command line"
-            if path.fnmatch("**/*.ipynb"):
-                if opt.np > 1:
-                    # Read in notebook
-                    with open(path) as f:
-                        nb = nbformat.read(f, as_version=4)
-                    # Add the %%px magic to every existing cell
-                    for cell in nb.cells:
-                        if cell.cell_type == "code":
-                            cell.source = "%%px\n" + cell.source
-                    # Add a cell on top to start a new ipyparallel cluster
-                    cluster_start_code = f"""import ipyparallel as ipp
+        opt = parent.config.option
+        assert not opt.nbval, "--nbval is implicitly enabled, do not provide it on the command line"
+        if path.fnmatch("**/*.ipynb"):
+            if opt.np > 1:
+                # Read in notebook
+                with open(path) as f:
+                    nb = nbformat.read(f, as_version=4)
+                # Add the %%px magic to every existing cell
+                for cell in nb.cells:
+                    if cell.cell_type == "code":
+                        cell.source = "%%px\n" + cell.source
+                # Add a cell on top to start a new ipyparallel cluster
+                cluster_start_code = f"""import ipyparallel as ipp
 
 cluster = ipp.Cluster(engines="MPI", profile="mpi", n={opt.np})
 cluster.start_and_connect_sync()"""
-                    cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
-                    cluster_start_cell.id = "cluster_start"
-                    nb.cells.insert(0, cluster_start_cell)
-                    # Add a further cell on top to disable garbage collection
-                    gc_disable_code = """%%px
+                cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
+                cluster_start_cell.id = "cluster_start"
+                nb.cells.insert(0, cluster_start_cell)
+                # Add a further cell on top to disable garbage collection
+                gc_disable_code = """%%px
 import gc
 
 gc.disable()"""
-                    gc_disable_cell = nbformat.v4.new_code_cell(gc_disable_code)
-                    gc_disable_cell.id = "gc_disable"
-                    nb.cells.insert(1, gc_disable_cell)
-                    # Add a cell at the end to re-enable garbage collection
-                    gc_enable_code = """%%px
+                gc_disable_cell = nbformat.v4.new_code_cell(gc_disable_code)
+                gc_disable_cell.id = "gc_disable"
+                nb.cells.insert(1, gc_disable_cell)
+                # Add a cell at the end to re-enable garbage collection
+                gc_enable_code = """%%px
 gc.enable()
 gc.collect()"""
-                    gc_enable_cell = nbformat.v4.new_code_cell(gc_enable_code)
-                    gc_enable_cell.id = "gc_enable"
-                    nb.cells.append(gc_enable_cell)
-                    # Add a cell at the end to stop the ipyparallel cluster
-                    cluster_stop_code = """cluster.stop_cluster_sync()"""
-                    cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)
-                    cluster_stop_cell.id = "cluster_stop"
-                    nb.cells.append(cluster_stop_cell)
-                    # Write modified notebook to a temporary file
-                    mpi_dir = os.path.join(path.dirname, ".ipynb_mpi")
-                    os.makedirs(mpi_dir, exist_ok=True)
-                    ipynb_path = path.new(dirname=mpi_dir)
-                    with open(ipynb_path, "w") as f:
-                        nbformat.write(nb, str(ipynb_path))
-                else:  # pragma: no cover
-                    ipynb_path = path
+                gc_enable_cell = nbformat.v4.new_code_cell(gc_enable_code)
+                gc_enable_cell.id = "gc_enable"
+                nb.cells.append(gc_enable_cell)
+                # Add a cell at the end to stop the ipyparallel cluster
+                cluster_stop_code = """cluster.stop_cluster_sync()"""
+                cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)
+                cluster_stop_cell.id = "cluster_stop"
+                nb.cells.append(cluster_stop_cell)
+                # Write modified notebook to a temporary file
+                mpi_dir = os.path.join(path.dirname, ".ipynb_mpi")
+                os.makedirs(mpi_dir, exist_ok=True)
+                ipynb_path = path.new(dirname=mpi_dir)
+                with open(ipynb_path, "w") as f:
+                    nbformat.write(nb, str(ipynb_path))
+            else:  # pragma: no cover
+                ipynb_path = path
+            if opt.tag_action != "create-notebooks":
                 return nbval.plugin.IPyNbFile.from_parent(parent, fspath=ipynb_path)
 
     def runtest_setup(item: _pytest.nodes.Item) -> None:
