@@ -58,10 +58,10 @@ jobs:
       - name: Run flake8 checks on notebooks test files
         run: |
           NO_TESTS_COLLECTED=5
-          python3 -m pytest --tag-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          python3 -m pytest --tag-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          python3 -m pytest --tag-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          python3 -m pytest --tag-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          python3 -m pytest --ipynb-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          python3 -m pytest --ipynb-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          python3 -m pytest --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          python3 -m pytest --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           nbqa flake8 .
       - name: Check for stray outputs, counts and metadata in notebooks test files
         uses: RBniCS/check-jupyter-metadata-action@main

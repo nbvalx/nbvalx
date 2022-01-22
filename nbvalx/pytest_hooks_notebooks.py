@@ -46,9 +46,10 @@ else:
             not ("OMPI_COMM_WORLD_SIZE" in os.environ  # OpenMPI
                  or "MPI_LOCALNRANKS" in os.environ)), (  # MPICH
             "Please do not start pytest under mpirun. Use the --np pytest option.")
-        # Tag actions
+        # Action to carry out on notebooks
         parser.addoption(
-            "--tag-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
+            "--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
+        # Tag collapse
         parser.addoption("--tag-collapse", action="store_true", help="Collapse notebook to active tag")
         # Working directory
         parser.addoption(
@@ -62,10 +63,12 @@ else:
         # Verify parallel options
         np = session.config.option.np
         assert np > 0
+        # Verify action options
+        ipynb_action = session.config.option.ipynb_action
+        assert ipynb_action in ("create-notebooks", "collect-notebooks")
         # Verify tag options
-        tag_action = session.config.option.tag_action
         tag_collapse = session.config.option.tag_collapse
-        assert tag_action in ("create-notebooks", "collect-notebooks")
+        assert tag_collapse in (True, False)
         # Verify working directory options
         if session.config.option.work_dir == "":
             session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
@@ -233,9 +236,9 @@ gc.collect()"""
 
     def collect_file(path: py.path.local, parent: _pytest.nodes.Collector) -> nbval.plugin.IPyNbFile:
         """Collect IPython notebooks using the custom pytest nbval collector."""
-        tag_action = parent.config.option.tag_action
+        ipynb_action = parent.config.option.ipynb_action
         work_dir = parent.config.option.work_dir
-        if path.fnmatch(f"{work_dir}/*.ipynb") and tag_action != "create-notebooks":
+        if path.fnmatch(f"{work_dir}/*.ipynb") and ipynb_action != "create-notebooks":
             return nbval.plugin.IPyNbFile.from_parent(parent, fspath=path)
 
     def runtest_setup(item: _pytest.nodes.Item) -> None:
