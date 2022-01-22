@@ -74,7 +74,14 @@ else:
             session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
         work_dir = session.config.option.work_dir
         assert work_dir not in ("", ".")
-        # List existing notebooks
+        # Verify if keyword matching (-k option) is enabled
+        keyword = session.config.option.keyword
+        if keyword != "":  # pragma: no cover
+            assert not keyword.endswith(".ipynb"), "Please do not provide the .ipynb extension when running pytest -k"
+            ipynb_match = f"**/*{keyword}*.ipynb"
+        else:
+            ipynb_match = "**/*.ipynb"
+        # List existing files
         files = list()
         for arg in session.config.args:
             dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
@@ -87,7 +94,7 @@ else:
                 raise RuntimeError("Please do not run pytest filename.ipynb, run pytest -k filename instead")
         # Process each notebook
         for filepath in files:
-            if fnmatch.fnmatch(filepath, "**/*.ipynb"):
+            if fnmatch.fnmatch(filepath, ipynb_match):
                 # Read in notebook
                 with open(filepath) as f:
                     nb = nbformat.read(f, as_version=4)
