@@ -177,7 +177,7 @@ else:
                         # Add the %%px magic to every existing cell
                         for cell in nb_tag.cells:
                             if cell.cell_type == "code":
-                                cell.source = "%%px\n" + cell.source
+                                cell.source = "%%px --no-stream\n" + cell.source
                         # Add a cell on top to start a new ipyparallel cluster
                         cluster_start_code = f"""import ipyparallel as ipp
 
@@ -187,7 +187,7 @@ cluster.start_and_connect_sync()"""
                         cluster_start_cell.id = "cluster_start"
                         nb_tag.cells.insert(0, cluster_start_cell)
                         # Add a further cell on top to disable garbage collection
-                        gc_disable_code = """%%px
+                        gc_disable_code = """%%px --no-stream
 import gc
 
 gc.disable()"""
@@ -195,7 +195,7 @@ gc.disable()"""
                         gc_disable_cell.id = "gc_disable"
                         nb_tag.cells.insert(1, gc_disable_cell)
                         # Add a cell at the end to re-enable garbage collection
-                        gc_enable_code = """%%px
+                        gc_enable_code = """%%px --no-stream
 gc.enable()
 gc.collect()"""
                         gc_enable_cell = nbformat.v4.new_code_cell(gc_enable_code)
