@@ -10,7 +10,7 @@ nbvalx changes the default behavior of nbval in the following three ways:
     1) Users may start a ipyparallel Cluster and run notebooks tests in parallel
     2) New markers are introduced to mark cells as xfail
     3) Handle selective cell run using tags introduced in magics.py
-    4) Print outputs to terminal
+    4) Print outputs to terminal on either success or faiure
 
 See also: https://github.com/pytest-dev/pytest/blob/main/src/_pytest/hookspec.py for type hints.
 """
@@ -22,6 +22,7 @@ try:
     import copy
     import fnmatch
 
+    import _pytest._code
     import _pytest.config
     import _pytest.main
     import _pytest.nodes
@@ -225,7 +226,9 @@ gc.collect()"""
             assert ".*" in norecursepatterns
             norecursepatterns.remove(".*")
 
-    def coalesce_streams(outputs: typing.Iterable[nbformat.NotebookNode]) -> typing.Iterable[nbformat.NotebookNode]:
+    def coalesce_streams(
+        outputs: typing.Iterable[nbformat.NotebookNode], print_to_terminal: bool = True
+    ) -> typing.Iterable[nbformat.NotebookNode]:
         """Patch nbval coalesce_streams to print stdout to terminal in verbose mode."""
         new_outputs = coalesce_streams.__super___(outputs)
         text_outputs = list()
@@ -235,18 +238,70 @@ gc.collect()"""
             elif out["output_type"] == "display_data" and "text/plain" in out["data"]:
                 text_outputs.append(out["data"]["text/plain"])
         if len(text_outputs) > 0:
-            print("\n" + "\n".join(text_outputs).strip("\n"))
-        return new_outputs
+            text_outputs_terminal = ("\n" + "\n".join(text_outputs)).strip("\n")
+        else:
+            text_outputs_terminal = ""
+        if print_to_terminal:
+            if text_outputs_terminal.strip() != "":
+                print(text_outputs_terminal)
+            return new_outputs
+        else:  # pragma: no cover
+            # This signature is not compatible with usage in nbval, but is employed here
+            # in the implementation of IPyNbCell.repr_failure
+            return new_outputs, text_outputs_terminal
 
     coalesce_streams.__super___ = nbval.plugin.coalesce_streams
     nbval.plugin.coalesce_streams = coalesce_streams
 
-    def collect_file(path: py.path.local, parent: _pytest.nodes.Collector) -> nbval.plugin.IPyNbFile:
+    class NbCellError(nbval.plugin.NbCellError):
+        """Customize nbval NbCellError to include cell outputs on failure."""
+
+        def __init__(
+            self, cell_num: int, msg: str, source: str, outputs: typing.Iterable[nbformat.NotebookNode],
+            traceback: str = None, *args: typing.Any, **kwargs: typing.Any
+        ) -> None:
+            super().__init__(cell_num, msg, source, traceback, *args, **kwargs)
+            self.outputs = outputs
+
+    class IPyNbCell(nbval.plugin.IPyNbCell):
+        """Customize nbval IPyNbCell to include cell outputs on failure."""
+
+        def repr_failure(self, excinfo: _pytest._code.code.ExceptionInfo[BaseException]) -> typing.Union[
+                str, _pytest._code.code.TerminalRepr]:
+            """Include cell outputs on failure."""
+            repr_super = super().repr_failure(excinfo)
+            exc = excinfo.value
+            if isinstance(exc, NbCellError):  # pragma: no cover
+                cc = self.colors
+                try:
+                    _, text_output = coalesce_streams(exc.outputs, print_to_terminal=False)
+                except Exception:
+                    text_output = "[exception was raised when collecting cell output]"
+                repr_text_output = (
+                    cc.OKBLUE + "Output:\n" + cc.ENDC + text_output + "\n")
+                return repr_super + "\n" + repr_text_output
+            else:
+                return repr_super
+
+        def raise_cell_error(self, message: str, *args: typing.Any, **kwargs: typing.Any) -> None:
+            """Raise NbCellError defined in this module rather than nbval's one."""
+            raise NbCellError(self.cell_num, message, self.cell.source, self.test_outputs, *args, **kwargs)
+
+    class IPyNbFile(nbval.plugin.IPyNbFile):
+        """Customize nbval IPyNbFile to use IPyNbCell defined in this module rather than nbval's one."""
+
+        def collect(self) -> typing.Iterable[IPyNbCell]:
+            """Strip nbval's IPyNbCell to the corresponding class defined in this module."""
+            for cell in super().collect():
+                yield IPyNbCell.from_parent(
+                    cell.parent, name=cell.name, cell_num=cell.cell_num, cell=cell.cell, options=cell.options)
+
+    def collect_file(path: py.path.local, parent: _pytest.nodes.Collector) -> IPyNbFile:
         """Collect IPython notebooks using the custom pytest nbval collector."""
         ipynb_action = parent.config.option.ipynb_action
         work_dir = parent.config.option.work_dir
         if path.fnmatch(f"{work_dir}/*.ipynb") and ipynb_action != "create-notebooks":
-            return nbval.plugin.IPyNbFile.from_parent(parent, fspath=path)
+            return IPyNbFile.from_parent(parent, fspath=path)
 
     def runtest_setup(item: _pytest.nodes.Item) -> None:
         """Insert skips on cell failure."""
