@@ -10,6 +10,7 @@ nbvalx changes the default behavior of nbval in the following three ways:
     1) Users may start a ipyparallel Cluster and run notebooks tests in parallel
     2) New markers are introduced to mark cells as xfail
     3) Handle selective cell run using tags introduced in magics.py
+    4) Print outputs to terminal
 
 See also: https://github.com/pytest-dev/pytest/blob/main/src/_pytest/hookspec.py for type hints.
 """
@@ -215,6 +216,22 @@ gc.collect()"""
                 norecursepatterns = session.config.getini("norecursedirs")
                 assert ".*" in norecursepatterns
                 norecursepatterns.remove(".*")
+
+    def coalesce_streams(outputs: typing.Iterable[nbformat.NotebookNode]) -> typing.Iterable[nbformat.NotebookNode]:
+        """Patch nbval coalesce_streams to print stdout to terminal in verbose mode."""
+        new_outputs = coalesce_streams.__super___(outputs)
+        text_outputs = list()
+        for out in new_outputs:
+            if out["output_type"] == "stream" and out["name"] == "stdout":
+                text_outputs.append(out["text"])
+            elif out["output_type"] == "display_data" and "text/plain" in out["data"]:
+                text_outputs.append(out["data"]["text/plain"])
+        if len(text_outputs) > 0:
+            print("\n" + "\n".join(text_outputs).strip("\n"))
+        return new_outputs
+
+    coalesce_streams.__super___ = nbval.plugin.coalesce_streams
+    nbval.plugin.coalesce_streams = coalesce_streams
 
     def collect_file(path: py.path.local, parent: _pytest.nodes.Collector) -> nbval.plugin.IPyNbFile:
         """Collect IPython notebooks using the custom pytest nbval collector."""
