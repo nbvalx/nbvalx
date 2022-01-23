@@ -27,10 +27,15 @@ class MockIPythonShell(object):
 
     def __init__(self) -> None:
         self.magics_manager = MockMagicsManager()
+        self.custom_exc_manager = dict()
 
     def register_magic_function(self, func: typing.Callable, magic_kind: str) -> None:
         """Update magics manager."""
         self.magics_manager.magics[magic_kind][func.__name__] = func
+
+    def set_custom_exc(self, exc_tuple: typing.Tuple[typing.Type[BaseException]], handler: typing.Callable) -> None:
+        """Update custom exception handler manager."""
+        self.custom_exc_manager[exc_tuple] = handler
 
 
 @pytest.fixture
