@@ -80,6 +80,13 @@ jobs:
         run: |
           python3 -m coverage combine .coverage*
           python3 -m coverage report --fail-under=100 --show-missing --skip-covered
+      - name: Upload notebooks logs as an artifact in case of failure
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v2
+        with:
+          name: "notebooks-logs-${{ matrix.python-version }}"
+          path: |
+            **/.ipynb_pytest/**/*.log*
       - name: Warn if scheduled workflow is about to be disabled
         if: github.repository == 'multiphenics/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
         uses: fem-on-colab/warn-workflow-about-to-be-disabled-action@main
