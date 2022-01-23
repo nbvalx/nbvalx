@@ -10,19 +10,21 @@ nbvalx changes the default behavior of nbval in the following three ways:
     1) Users may start a ipyparallel Cluster and run notebooks tests in parallel
     2) New markers are introduced to mark cells as xfail
     3) Handle selective cell run using tags introduced in magics.py
-    4) Print outputs to terminal on either success or faiure
+    4) Print outputs to log file
 
 See also: https://github.com/pytest-dev/pytest/blob/main/src/_pytest/hookspec.py for type hints.
 """
 
+import collections
+import contextlib
+import copy
+import fnmatch
+import glob
 import os
+import re
 import typing
 
 try:
-    import copy
-    import fnmatch
-
-    import _pytest._code
     import _pytest.config
     import _pytest.main
     import _pytest.nodes
@@ -102,7 +104,8 @@ else:
                 for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
                     if dir_entry.is_file():
                         filepath = str(dir_entry.path)
-                        if fnmatch.fnmatch(filepath, "**/*.ipynb"):
+                        if (fnmatch.fnmatch(filepath, "**/*.ipynb")
+                                or fnmatch.fnmatch(filepath, "**/*.log") or fnmatch.fnmatch(filepath, "**/*.log-*")):
                             os.remove(filepath)
         # Process each notebook
         for filepath in files:
@@ -172,13 +175,6 @@ else:
                                         cells_tag.append(cell_tag)
                                 else:
                                     cells_tag.append(cell_tag)
-                            elif cell.source.startswith("__notebook_name__"):
-                                assert len(cell.source.splitlines()) == 1, (
-                                    "Use a standalone cell for __notebook_name__")
-                                notebook_name_tag = os.path.relpath(
-                                    ipynb_path, os.path.dirname(filepath))
-                                cell_tag.source = f'__notebook_name__ = "{notebook_name_tag}"'
-                                cells_tag.append(cell_tag)
                             else:
                                 cells_tag.append(cell_tag)
                         else:
@@ -197,13 +193,68 @@ else:
                         os.path.dirname(filepath), work_dir, os.path.basename(filepath))
                     # Store notebook in dictionary
                     nb_tags[ipynb_path] = nb
+            # Replace notebook name
+            for (ipynb_path, nb_tag) in nb_tags.items():
+                for cell in nb_tag.cells:
+                    if cell.cell_type == "code":
+                        if cell.source.startswith("__notebook_name__"):
+                            assert len(cell.source.splitlines()) == 1, (
+                                "Use a standalone cell for __notebook_name__")
+                            notebook_name_tag = os.path.relpath(
+                                ipynb_path, os.path.dirname(filepath))
+                            cell.source = f'__notebook_name__ = "{notebook_name_tag}"'
+            # Add live stdout redirection to file when running notebooks through pytest
+            # Such redirection is not added when only asked to create notebooks, as:
+            # * the user who requested notebooks may not want redirection to take place
+            # * the additional cell may interfere with flake8 checks
+            if ipynb_action != "create-notebooks":
+                for (ipynb_path, nb_tag) in nb_tags.items():
+                    # Add the live_log magic to every existing cell
+                    _add_cell_magic(nb_tag, "%%live_log")
+                    # Add a cell on top to define the live_log magic
+                    live_log_magic_code = f'''import contextlib
+
+import IPython
+import mpi4py
+import mpi4py.MPI
+
+import nbvalx.jupyter_magics
+
+def live_log(line: str, cell: str = None) -> None:
+    """Redirect notebook to log file."""
+    with contextlib.redirect_stdout(open(live_log.__file__, "a", buffering=1)):
+        print("---------------------------")
+        print()
+        print("Input:")
+        print(cell.strip("\\n"))
+        print()
+        print("Output (stdout):")
+        result = IPython.get_ipython().run_cell(cell)
+        try:
+            result.raise_error()
+        except Exception as e:
+            # The exception has already been printed to the terminal, there is
+            # no need of printing it again
+            raise nbvalx.jupyter_magics.SuppressTraceback(e)
+        finally:
+            print()
+
+live_log.__file__ = "{ipynb_path.strip(".ipynb") + ".log"}"  # noqa: E501
+if mpi4py.MPI.COMM_WORLD.size > 1:
+    live_log.__file__ += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
+open(live_log.__file__, "w").close()
+
+IPython.get_ipython().register_magic_function(live_log, "cell")
+IPython.get_ipython().set_custom_exc(
+    (nbvalx.jupyter_magics.SuppressTraceback, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
+                    live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)
+                    live_log_magic_cell.id = "live_log_magic"
+                    nb_tag.cells.insert(0, live_log_magic_cell)
             # Add parallel support
             if np > 1:
                 for (ipynb_path, nb_tag) in nb_tags.items():
-                    # Add the %%px magic to every existing cell
-                    for cell in nb_tag.cells:
-                        if cell.cell_type == "code":
-                            cell.source = "%%px --no-stream\n" + cell.source
+                    # Add the px magic to every existing cell
+                    _add_cell_magic(nb_tag, "%%px --no-stream" if ipynb_action != "create-notebooks" else "%%px")
                     # Add a cell on top to start a new ipyparallel cluster
                     cluster_start_code = f"""import ipyparallel as ipp
 
@@ -212,21 +263,6 @@ cluster.start_and_connect_sync()"""
                     cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
                     cluster_start_cell.id = "cluster_start"
                     nb_tag.cells.insert(0, cluster_start_cell)
-                    # Add a further cell on top to disable garbage collection
-                    gc_disable_code = """%%px --no-stream
-import gc
-
-gc.disable()"""
-                    gc_disable_cell = nbformat.v4.new_code_cell(gc_disable_code)
-                    gc_disable_cell.id = "gc_disable"
-                    nb_tag.cells.insert(1, gc_disable_cell)
-                    # Add a cell at the end to re-enable garbage collection
-                    gc_enable_code = """%%px --no-stream
-gc.enable()
-gc.collect()"""
-                    gc_enable_cell = nbformat.v4.new_code_cell(gc_enable_code)
-                    gc_enable_cell.id = "gc_enable"
-                    nb_tag.cells.append(gc_enable_cell)
                     # Add a cell at the end to stop the ipyparallel cluster
                     cluster_stop_code = """cluster.stop_cluster_sync()"""
                     cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)
@@ -244,66 +280,66 @@ gc.collect()"""
             assert ".*" in norecursepatterns
             norecursepatterns.remove(".*")
 
-    def coalesce_streams(
-        outputs: typing.Iterable[nbformat.NotebookNode], print_to_terminal: bool = True
-    ) -> typing.Iterable[nbformat.NotebookNode]:
-        """Patch nbval coalesce_streams to print stdout to terminal in verbose mode."""
-        new_outputs = coalesce_streams.__super___(outputs)
-        text_outputs = list()
-        for out in new_outputs:
-            if out["output_type"] == "stream" and out["name"] == "stdout":
-                text_outputs.append(out["text"])
-            elif out["output_type"] == "display_data" and "text/plain" in out["data"]:
-                text_outputs.append(out["data"]["text/plain"])
-        if len(text_outputs) > 0:
-            text_outputs_terminal = ("\n" + "\n".join(text_outputs)).strip("\n")
-        else:
-            text_outputs_terminal = ""
-        if print_to_terminal:
-            if text_outputs_terminal.strip() != "":
-                print(text_outputs_terminal)
-            return new_outputs
-        else:  # pragma: no cover
-            # This signature is not compatible with usage in nbval, but is employed here
-            # in the implementation of IPyNbCell.repr_failure
-            return new_outputs, text_outputs_terminal
-
-    coalesce_streams.__super___ = nbval.plugin.coalesce_streams
-    nbval.plugin.coalesce_streams = coalesce_streams
-
-    class NbCellError(nbval.plugin.NbCellError):
-        """Customize nbval NbCellError to include cell outputs on failure."""
-
-        def __init__(
-            self, cell_num: int, msg: str, source: str, outputs: typing.Iterable[nbformat.NotebookNode],
-            traceback: str = None, *args: typing.Any, **kwargs: typing.Any
-        ) -> None:
-            super().__init__(cell_num, msg, source, traceback, *args, **kwargs)
-            self.outputs = outputs
+    def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> None:
+        """Add the cell magic to every cell of the notebook."""
+        for cell in nb.cells:
+            if cell.cell_type == "code":
+                cell.source = additional_cell_magic + "\n" + cell.source
 
     class IPyNbCell(nbval.plugin.IPyNbCell):
-        """Customize nbval IPyNbCell to include cell outputs on failure."""
+        """Customize nbval IPyNbCell to write jupyter cell outputs to log file."""
 
-        def repr_failure(self, excinfo: _pytest._code.code.ExceptionInfo[BaseException]) -> typing.Union[
-                str, _pytest._code.code.TerminalRepr]:
-            """Include cell outputs on failure."""
-            repr_super = super().repr_failure(excinfo)
-            exc = excinfo.value
-            if isinstance(exc, NbCellError):
-                cc = self.colors
-                try:
-                    _, text_output = coalesce_streams(exc.outputs, print_to_terminal=False)
-                except Exception:  # pragma: no cover
-                    text_output = "[exception was raised when collecting cell output]"
-                repr_text_output = (
-                    cc.OKBLUE + "Output:\n" + cc.ENDC + text_output + "\n")
-                return repr_super + "\n" + repr_text_output
+        _MockExceptionInfo = collections.namedtuple("MockExceptionInfo", ["value"])
+
+        def runtest(self) -> None:
+            """
+            Redirect jupyter outputs to log file after test execution is completed.
+
+            In contrast to stdout, which is handled by the %%live_log magic, these outputs are not
+            written live to the log file. However, we expect the delay to be minimal since jupyter outputs
+            such as display_data or execute_result are typically shown when cell execution is completed.
+            """
+            try:
+                super().runtest()
+            except nbval.plugin.NbCellError as e:
+                # Write the exception to log file
+                self._write_to_log_file(
+                    "Failure", self.repr_failure(IPyNbCell._MockExceptionInfo(value=e)))
+                # Re-raise
+                raise
+            finally:
+                # Write other jupyter outputs to log file
+                self._write_to_log_file(
+                    "Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
+
+        def _transform_jupyter_outputs_to_text(
+                self, outputs: typing.Iterable[nbformat.NotebookNode]) -> typing.Iterable[nbformat.NotebookNode]:
+            """Transform outputs that are not processed by the %%live_log magic to a text."""
+            outputs = nbval.plugin.coalesce_streams(outputs)
+            text_outputs = list()
+            for out in outputs:
+                if out["output_type"] == "stream":
+                    text_outputs.append("[" + out["name"] + "] " + out["text"])
+                elif out["output_type"] in ("display_data", "execute_result") and "text/plain" in out["data"]:
+                    text_outputs.append("[" + out["output_type"] + "] " + out["data"]["text/plain"])
+            if len(text_outputs) > 0:
+                return ("\n" + "\n".join(text_outputs)).strip("\n")
             else:
-                return repr_super
+                return ""
 
-        def raise_cell_error(self, message: str, *args: typing.Any, **kwargs: typing.Any) -> None:
-            """Raise NbCellError defined in this module rather than nbval's one."""
-            raise NbCellError(self.cell_num, message, self.cell.source, self.test_outputs, *args, **kwargs)
+        def _write_to_log_file(self, section: str, content: str) -> None:
+            """Write content to a section of the live log file."""
+            if "%%live_log" in self.cell.source:
+                for log_file in glob.glob(str(self.parent.fspath).strip(".ipynb") + ".log*"):
+                    with contextlib.redirect_stdout(open(log_file, "a", buffering=1)):
+                        print(section + ":")
+                        print(self._strip_ansi(content))
+
+        def _strip_ansi(self, content: str) -> None:
+            """Strip colors while writing to file. See strip_ansi on PyPI."""
+            return self._strip_ansi.pattern.sub("", content)
+
+        _strip_ansi.pattern = re.compile(r"\x1B\[\d+(;\d+){0,2}m")
 
     class IPyNbFile(nbval.plugin.IPyNbFile):
         """Customize nbval IPyNbFile to use IPyNbCell defined in this module rather than nbval's one."""
@@ -327,7 +363,7 @@ gc.collect()"""
         item.setup()
         # If previous cells in a notebook failed skip the rest of the notebook
         if hasattr(item, "_force_skip"):
-            if not hasattr(item.cell, "id") or item.cell.id not in ("gc_enable", "cluster_stop"):
+            if not hasattr(item.cell, "id") or item.cell.id not in ("cluster_stop", ):
                 pytest.skip("A previous cell failed")
 
     def runtest_makereport(item: _pytest.nodes.Item, call: _pytest.runner.CallInfo[None]) -> None:
