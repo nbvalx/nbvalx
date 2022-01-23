@@ -289,11 +289,11 @@ gc.collect()"""
             """Include cell outputs on failure."""
             repr_super = super().repr_failure(excinfo)
             exc = excinfo.value
-            if isinstance(exc, NbCellError):  # pragma: no cover
+            if isinstance(exc, NbCellError):
                 cc = self.colors
                 try:
                     _, text_output = coalesce_streams(exc.outputs, print_to_terminal=False)
-                except Exception:
+                except Exception:  # pragma: no cover
                     text_output = "[exception was raised when collecting cell output]"
                 repr_text_output = (
                     cc.OKBLUE + "Output:\n" + cc.ENDC + text_output + "\n")
@@ -349,9 +349,10 @@ gc.collect()"""
                         or (xfail_marker in ("PYTEST_XFAIL_IN_PARALLEL", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT")
                             and item.config.option.np > 1)):
                         # This failure was expected: report the reason of xfail.
+                        original_repr_failure = item.repr_failure(call.excinfo)
                         call.excinfo._excinfo = (
                             call.excinfo._excinfo[0],
-                            pytest.xfail.Exception(xfail_reason.capitalize()),
+                            pytest.xfail.Exception(xfail_reason.capitalize() + "\n" + original_repr_failure),
                             call.excinfo._excinfo[2])
                     if xfail_marker in ("PYTEST_XFAIL_AND_SKIP_NEXT", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT"):
                         # The failure, even though expected, forces the rest of the notebook to be skipped.
