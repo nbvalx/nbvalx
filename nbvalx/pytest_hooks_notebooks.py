@@ -165,12 +165,8 @@ else:
                             elif cell.source.startswith("__notebook_name__"):
                                 assert len(cell.source.splitlines()) == 1, (
                                     "Use a standalone cell for __notebook_name__")
-                                if ".ipynb_pytest" in work_dir:
-                                    notebook_name_tag = os.path.relpath(
-                                        ipynb_path, os.path.join(os.path.dirname(filepath), ".ipynb_pytest"))
-                                else:  # pragma: no cover
-                                    notebook_name_tag = os.path.relpath(
-                                        ipynb_path, os.path.join(os.path.dirname(filepath), work_dir))
+                                notebook_name_tag = os.path.relpath(
+                                    ipynb_path, os.path.dirname(filepath))
                                 cell_tag.source = f'__notebook_name__ = "{notebook_name_tag}"'
                                 cells_tag.append(cell_tag)
                             else:
