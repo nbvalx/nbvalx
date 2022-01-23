@@ -52,9 +52,9 @@ else:
             "--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
         # Tag collapse
         parser.addoption("--tag-collapse", action="store_true", help="Collapse notebook to active tag")
-        # Working directory
+        # Work directory
         parser.addoption(
-            "--work-dir", type=str, default="", help="Working directory in which to run the tests")
+            "--work-dir", type=str, default="", help="Work directory in which to run the tests")
 
     def sessionstart(session: _pytest.main.Session) -> None:
         """Parameterize jupyter notebooks based on available tags."""
@@ -70,16 +70,17 @@ else:
         # Verify tag options
         tag_collapse = session.config.option.tag_collapse
         assert tag_collapse in (True, False)
-        # Verify working directory options
+        # Verify work directory options
         if session.config.option.work_dir == "":
             session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
         work_dir = session.config.option.work_dir
-        assert work_dir not in ("", ".")
+        assert work_dir not in ("", "."), "Please specify a subdirectory as work directory"
+        assert not work_dir.startswith(os.sep), "Please use a relative path while specifying work directory"
         # Verify if keyword matching (-k option) is enabled, as it will be used to match tags
         keyword = session.config.option.keyword
         # List existing files
         files = list()
-        new_args = set()
+        dirs = set()
         for arg in session.config.args:
             dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
             if os.path.isdir(dir_or_file):
@@ -88,12 +89,21 @@ else:
                         filepath = str(dir_entry.path)
                         if fnmatch.fnmatch(filepath, "**/*.ipynb"):
                             files.append(filepath)
-                    new_args.add(str(dir_or_file))
+                    dirs.add(str(dir_or_file))
             else:  # pragma: no cover
                 assert fnmatch.fnmatch(dir_or_file, "**/*.ipynb")
-                files.append(dir_or_file)
-                new_args.add(os.path.dirname(dir_or_file))
-        session.config.args = list(new_args)
+                files.append(str(dir_or_file))
+                dirs.add(os.path.dirname(dir_or_file))
+        session.config.args = list(dirs)
+        # Clean up possibly existing notebooks in work directory from a previous run
+        for dirpath in dirs:
+            work_dirpath = os.path.join(dirpath, work_dir)
+            if os.path.exists(work_dirpath):  # pragma: no cover
+                for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
+                    if dir_entry.is_file():
+                        filepath = str(dir_entry.path)
+                        if fnmatch.fnmatch(filepath, "**/*.ipynb"):
+                            os.remove(filepath)
         # Process each notebook
         for filepath in files:
             # Read in notebook
