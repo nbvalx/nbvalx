@@ -75,150 +75,162 @@ else:
             session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
         work_dir = session.config.option.work_dir
         assert work_dir not in ("", ".")
-        # Verify if keyword matching (-k option) is enabled
+        # Verify if keyword matching (-k option) is enabled, as it will be used to match tags
         keyword = session.config.option.keyword
-        if keyword != "":  # pragma: no cover
-            assert not keyword.endswith(".ipynb"), "Please do not provide the .ipynb extension when running pytest -k"
-            ipynb_match = f"**/*{keyword}*.ipynb"
-        else:
-            ipynb_match = "**/*.ipynb"
         # List existing files
         files = list()
+        new_args = set()
         for arg in session.config.args:
             dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
             if os.path.isdir(dir_or_file):
                 for dir_entry in _pytest.pathlib.visit(dir_or_file, session._recurse):
                     if dir_entry.is_file():
-                        files.append(str(dir_entry.path))
+                        filepath = str(dir_entry.path)
+                        if fnmatch.fnmatch(filepath, "**/*.ipynb"):
+                            files.append(filepath)
+                    new_args.add(str(dir_or_file))
             else:  # pragma: no cover
-                assert os.path.isfile(dir_or_file)
-                raise RuntimeError("Please do not run pytest filename.ipynb, run pytest -k filename instead")
+                assert fnmatch.fnmatch(dir_or_file, "**/*.ipynb")
+                files.append(dir_or_file)
+                new_args.add(os.path.dirname(dir_or_file))
+        session.config.args = list(new_args)
         # Process each notebook
         for filepath in files:
-            if fnmatch.fnmatch(filepath, ipynb_match):
-                # Read in notebook
-                with open(filepath) as f:
-                    nb = nbformat.read(f, as_version=4)
-                # Determine if the run_if extension is used
-                run_if_loaded = False
-                allowed_tags = []
-                for cell in nb.cells:
-                    if cell.cell_type == "code":
-                        if cell.source.startswith("%load_ext nbvalx"):
-                            run_if_loaded = True
-                            assert len(cell.source.splitlines()) == 1, (
-                                "Use a standalone cell for %load_ext nbvalx")
-                        elif cell.source.startswith("%register_run_if_allowed_tags"):
-                            assert run_if_loaded
-                            lines = cell.source.splitlines()
-                            assert len(lines) == 1, (
-                                "Use a standalone cell for %register_run_if_allowed_tags")
-                            line = lines[0].replace("%register_run_if_allowed_tags ", "")
-                            allowed_tags = [tag.strip() for tag in line.split(",")]
-                # Create temporary copies for each allowed tag
-                nb_tags = dict()
-                if run_if_loaded and len(allowed_tags) > 0:
-                    for tag in allowed_tags:
-                        # Determine what will be the new notebook path
-                        ipynb_path = os.path.join(
-                            os.path.dirname(filepath), work_dir,
-                            os.path.basename(filepath).replace(".ipynb", f"[{tag}].ipynb"))
-                        # Replace tag and, if collapsing notebooks, strip cells with other tags
-                        cells_tag = list()
-                        for cell in nb.cells:
-                            cell_tag = copy.deepcopy(cell)
-                            if cell.cell_type == "code":
-                                if (cell.source.startswith("%load_ext nbvalx")
-                                        or cell.source.startswith("%register_run_if_allowed_tags")):
-                                    if not tag_collapse:
-                                        cells_tag.append(cell_tag)
-                                elif cell.source.startswith("%register_run_if_current_tag"):
-                                    assert len(cell.source.splitlines()) == 1, (
-                                        "Use a standalone cell for %register_run_if_current_tag")
-                                    if not tag_collapse:
-                                        cell_tag.source = f"%register_run_if_current_tag {tag}"
-                                        cells_tag.append(cell_tag)
-                                elif "%%run_if" in cell.source:
-                                    if tag_collapse:
-                                        lines = cell.source.splitlines()
-                                        magic_line_index = 0
-                                        while not lines[magic_line_index].startswith("%%run_if"):
-                                            magic_line_index += 1
-                                        assert magic_line_index < len(lines)
-                                        line = lines[magic_line_index].replace("%%run_if ", "")
-                                        allowed_tags = [tag.strip() for tag in line.split(",")]
-                                        if tag in allowed_tags:
-                                            lines.remove(lines[magic_line_index])
-                                            cell_tag.source = "\n".join(lines)
-                                            cells_tag.append(cell_tag)
-                                    else:
-                                        cells_tag.append(cell_tag)
-                                elif cell.source.startswith("__notebook_name__"):
-                                    assert len(cell.source.splitlines()) == 1, (
-                                        "Use a standalone cell for __notebook_name__")
-                                    if ".ipynb_pytest" in work_dir:
-                                        notebook_name_tag = os.path.relpath(
-                                            ipynb_path, os.path.join(os.path.dirname(filepath), ".ipynb_pytest"))
-                                    else:  # pragma: no cover
-                                        notebook_name_tag = os.path.relpath(
-                                            ipynb_path, os.path.join(os.path.dirname(filepath), work_dir))
-                                    cell_tag.source = f'__notebook_name__ = "{notebook_name_tag}"'
+            # Read in notebook
+            with open(filepath) as f:
+                nb = nbformat.read(f, as_version=4)
+            # Determine if the run_if extension is used
+            run_if_loaded = False
+            allowed_tags = []
+            for cell in nb.cells:
+                if cell.cell_type == "code":
+                    if cell.source.startswith("%load_ext nbvalx"):
+                        run_if_loaded = True
+                        assert len(cell.source.splitlines()) == 1, (
+                            "Use a standalone cell for %load_ext nbvalx")
+                    elif cell.source.startswith("%register_run_if_allowed_tags"):
+                        assert run_if_loaded
+                        lines = cell.source.splitlines()
+                        assert len(lines) == 1, (
+                            "Use a standalone cell for %register_run_if_allowed_tags")
+                        line = lines[0].replace("%register_run_if_allowed_tags ", "")
+                        allowed_tags = [tag.strip() for tag in line.split(",")]
+            # Create temporary copies for each tag to be processed
+            nb_tags = dict()
+            if run_if_loaded and len(allowed_tags) > 0:
+                # Restrict tags to match keyword
+                if keyword != "":  # pragma: no cover
+                    if keyword in allowed_tags:
+                        processed_tags = [keyword]
+                    else:
+                        processed_tags = []
+                else:
+                    processed_tags = allowed_tags
+                # Process restricted tags
+                for tag in processed_tags:
+                    # Determine what will be the new notebook path
+                    ipynb_path = os.path.join(
+                        os.path.dirname(filepath), work_dir,
+                        os.path.basename(filepath).replace(".ipynb", f"[{tag}].ipynb"))
+                    # Replace tag and, if collapsing notebooks, strip cells with other tags
+                    cells_tag = list()
+                    for cell in nb.cells:
+                        cell_tag = copy.deepcopy(cell)
+                        if cell.cell_type == "code":
+                            if (cell.source.startswith("%load_ext nbvalx")
+                                    or cell.source.startswith("%register_run_if_allowed_tags")):
+                                if not tag_collapse:
                                     cells_tag.append(cell_tag)
+                            elif cell.source.startswith("%register_run_if_current_tag"):
+                                assert len(cell.source.splitlines()) == 1, (
+                                    "Use a standalone cell for %register_run_if_current_tag")
+                                if not tag_collapse:
+                                    cell_tag.source = f"%register_run_if_current_tag {tag}"
+                                    cells_tag.append(cell_tag)
+                            elif "%%run_if" in cell.source:
+                                if tag_collapse:
+                                    lines = cell.source.splitlines()
+                                    magic_line_index = 0
+                                    while not lines[magic_line_index].startswith("%%run_if"):
+                                        magic_line_index += 1
+                                    assert magic_line_index < len(lines)
+                                    line = lines[magic_line_index].replace("%%run_if ", "")
+                                    run_if_tags = [tag.strip() for tag in line.split(",")]
+                                    if tag in run_if_tags:
+                                        lines.remove(lines[magic_line_index])
+                                        cell_tag.source = "\n".join(lines)
+                                        cells_tag.append(cell_tag)
                                 else:
                                     cells_tag.append(cell_tag)
+                            elif cell.source.startswith("__notebook_name__"):
+                                assert len(cell.source.splitlines()) == 1, (
+                                    "Use a standalone cell for __notebook_name__")
+                                if ".ipynb_pytest" in work_dir:
+                                    notebook_name_tag = os.path.relpath(
+                                        ipynb_path, os.path.join(os.path.dirname(filepath), ".ipynb_pytest"))
+                                else:  # pragma: no cover
+                                    notebook_name_tag = os.path.relpath(
+                                        ipynb_path, os.path.join(os.path.dirname(filepath), work_dir))
+                                cell_tag.source = f'__notebook_name__ = "{notebook_name_tag}"'
+                                cells_tag.append(cell_tag)
                             else:
                                 cells_tag.append(cell_tag)
-                        # Attach cells to a copy of the notebook
-                        nb_tag = copy.deepcopy(nb)
-                        nb_tag.cells = cells_tag
-                        # Store notebook in dictionary
-                        nb_tags[ipynb_path] = nb_tag
-                else:
+                        else:
+                            cells_tag.append(cell_tag)
+                    # Attach cells to a copy of the notebook
+                    nb_tag = copy.deepcopy(nb)
+                    nb_tag.cells = cells_tag
+                    # Store notebook in dictionary
+                    nb_tags[ipynb_path] = nb_tag
+            else:
+                # Create a temporary copy only if no keyword is provided, as untagged
+                # notebooks would not match any non null keyword
+                if keyword == "":
                     # Determine what will be the new notebook path
                     ipynb_path = os.path.join(
                         os.path.dirname(filepath), work_dir, os.path.basename(filepath))
                     # Store notebook in dictionary
                     nb_tags[ipynb_path] = nb
-                # Add parallel support
-                if np > 1:
-                    for (ipynb_path, nb_tag) in nb_tags.items():
-                        # Add the %%px magic to every existing cell
-                        for cell in nb_tag.cells:
-                            if cell.cell_type == "code":
-                                cell.source = "%%px --no-stream\n" + cell.source
-                        # Add a cell on top to start a new ipyparallel cluster
-                        cluster_start_code = f"""import ipyparallel as ipp
+            # Add parallel support
+            if np > 1:
+                for (ipynb_path, nb_tag) in nb_tags.items():
+                    # Add the %%px magic to every existing cell
+                    for cell in nb_tag.cells:
+                        if cell.cell_type == "code":
+                            cell.source = "%%px --no-stream\n" + cell.source
+                    # Add a cell on top to start a new ipyparallel cluster
+                    cluster_start_code = f"""import ipyparallel as ipp
 
 cluster = ipp.Cluster(engines="MPI", profile="mpi", n={np})
 cluster.start_and_connect_sync()"""
-                        cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
-                        cluster_start_cell.id = "cluster_start"
-                        nb_tag.cells.insert(0, cluster_start_cell)
-                        # Add a further cell on top to disable garbage collection
-                        gc_disable_code = """%%px --no-stream
+                    cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
+                    cluster_start_cell.id = "cluster_start"
+                    nb_tag.cells.insert(0, cluster_start_cell)
+                    # Add a further cell on top to disable garbage collection
+                    gc_disable_code = """%%px --no-stream
 import gc
 
 gc.disable()"""
-                        gc_disable_cell = nbformat.v4.new_code_cell(gc_disable_code)
-                        gc_disable_cell.id = "gc_disable"
-                        nb_tag.cells.insert(1, gc_disable_cell)
-                        # Add a cell at the end to re-enable garbage collection
-                        gc_enable_code = """%%px --no-stream
+                    gc_disable_cell = nbformat.v4.new_code_cell(gc_disable_code)
+                    gc_disable_cell.id = "gc_disable"
+                    nb_tag.cells.insert(1, gc_disable_cell)
+                    # Add a cell at the end to re-enable garbage collection
+                    gc_enable_code = """%%px --no-stream
 gc.enable()
 gc.collect()"""
-                        gc_enable_cell = nbformat.v4.new_code_cell(gc_enable_code)
-                        gc_enable_cell.id = "gc_enable"
-                        nb_tag.cells.append(gc_enable_cell)
-                        # Add a cell at the end to stop the ipyparallel cluster
-                        cluster_stop_code = """cluster.stop_cluster_sync()"""
-                        cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)
-                        cluster_stop_cell.id = "cluster_stop"
-                        nb_tag.cells.append(cluster_stop_cell)
-                # Write modified notebooks to the work directory
-                for (ipynb_path, nb_tag) in nb_tags.items():
-                    os.makedirs(os.path.dirname(ipynb_path), exist_ok=True)
-                    with open(ipynb_path, "w") as f:
-                        nbformat.write(nb_tag, str(ipynb_path))
+                    gc_enable_cell = nbformat.v4.new_code_cell(gc_enable_code)
+                    gc_enable_cell.id = "gc_enable"
+                    nb_tag.cells.append(gc_enable_cell)
+                    # Add a cell at the end to stop the ipyparallel cluster
+                    cluster_stop_code = """cluster.stop_cluster_sync()"""
+                    cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)
+                    cluster_stop_cell.id = "cluster_stop"
+                    nb_tag.cells.append(cluster_stop_cell)
+            # Write modified notebooks to the work directory
+            for (ipynb_path, nb_tag) in nb_tags.items():
+                os.makedirs(os.path.dirname(ipynb_path), exist_ok=True)
+                with open(ipynb_path, "w") as f:
+                    nbformat.write(nb_tag, str(ipynb_path))
         # If the work directory is hidden, patch default norecursepatterns so that the files
         # we created will not get ignored
         if work_dir.startswith("."):
