@@ -239,7 +239,7 @@ def live_log(line: str, cell: str = None) -> None:
         finally:
             print()
 
-live_log.__file__ = "{ipynb_path.strip(".ipynb") + ".log"}"  # noqa: E501
+live_log.__file__ = "{ipynb_path[:-6] + ".log"}"  # noqa: E501
 if mpi4py.MPI.COMM_WORLD.size > 1:
     live_log.__file__ += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
 open(live_log.__file__, "w").close()
@@ -330,7 +330,7 @@ cluster.start_and_connect_sync()"""
         def _write_to_log_file(self, section: str, content: str) -> None:
             """Write content to a section of the live log file."""
             if "%%live_log" in self.cell.source:
-                for log_file in glob.glob(str(self.parent.fspath).strip(".ipynb") + ".log*"):
+                for log_file in glob.glob(str(self.parent.fspath)[:-6] + ".log*"):
                     with contextlib.redirect_stdout(open(log_file, "a", buffering=1)):
                         print(section + ":")
                         print(self._strip_ansi(content))
