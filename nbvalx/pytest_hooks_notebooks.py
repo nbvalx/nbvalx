@@ -104,8 +104,7 @@ else:
                 for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
                     if dir_entry.is_file():
                         filepath = str(dir_entry.path)
-                        if (fnmatch.fnmatch(filepath, "**/*.ipynb")
-                                or fnmatch.fnmatch(filepath, "**/*.log") or fnmatch.fnmatch(filepath, "**/*.log-*")):
+                        if fnmatch.fnmatch(filepath, "**/*.ipynb"):
                             os.remove(filepath)
         # Process each notebook
         for filepath in files:
