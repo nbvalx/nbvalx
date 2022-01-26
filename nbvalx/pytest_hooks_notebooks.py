@@ -76,8 +76,10 @@ else:
         if session.config.option.work_dir == "":
             session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
         work_dir = session.config.option.work_dir
-        assert work_dir not in ("", "."), "Please specify a subdirectory as work directory"
         assert not work_dir.startswith(os.sep), "Please use a relative path while specifying work directory"
+        if np > 1 or ipynb_action != "create-notebooks":
+            assert work_dir != ".", (
+                "Please use a subdirectory as work directory to prevent losing the original notebooks")
         # Verify if keyword matching (-k option) is enabled, as it will be used to match tags
         keyword = session.config.option.keyword
         # List existing files
@@ -98,14 +100,15 @@ else:
                 dirs.add(os.path.dirname(dir_or_file))
         session.config.args = list(dirs)
         # Clean up possibly existing notebooks in work directory from a previous run
-        for dirpath in dirs:
-            work_dirpath = os.path.join(dirpath, work_dir)
-            if os.path.exists(work_dirpath):  # pragma: no cover
-                for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
-                    if dir_entry.is_file():
-                        filepath = str(dir_entry.path)
-                        if fnmatch.fnmatch(filepath, "**/*.ipynb"):
-                            os.remove(filepath)
+        if work_dir != ".":
+            for dirpath in dirs:
+                work_dirpath = os.path.join(dirpath, work_dir)
+                if os.path.exists(work_dirpath):  # pragma: no cover
+                    for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
+                        if dir_entry.is_file():
+                            filepath = str(dir_entry.path)
+                            if fnmatch.fnmatch(filepath, "**/*.ipynb"):
+                                os.remove(filepath)
         # Process each notebook
         for filepath in files:
             # Read in notebook
