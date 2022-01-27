@@ -93,4 +93,3 @@ jobs:
         with:
           workflow-filename: ci.yml
           days-elapsed: 50
-          token: ${{ secrets.SCHEDULED_ACTIONS_WARNING_API_TOKEN }}
