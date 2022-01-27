@@ -236,10 +236,18 @@ else:
                     live_log_magic_code = f'''import contextlib
 
 import IPython
-import mpi4py
-import mpi4py.MPI
 
 import nbvalx.jupyter_magics
+
+live_log_suffix = ".log"
+try:
+    import mpi4py
+    import mpi4py.MPI
+except ImportError:
+    pass
+else:
+    if mpi4py.MPI.COMM_WORLD.size > 1:
+        live_log_suffix += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
 
 def live_log(line: str, cell: str = None) -> None:
     """Redirect notebook to log file."""
@@ -260,9 +268,8 @@ def live_log(line: str, cell: str = None) -> None:
         finally:
             print()
 
-live_log.__file__ = "{ipynb_path[:-6] + ".log"}"  # noqa: E501
-if mpi4py.MPI.COMM_WORLD.size > 1:
-    live_log.__file__ += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
+live_log.__file__ = "{ipynb_path[:-6]}" + live_log_suffix  # noqa: E501
+del live_log_suffix
 open(live_log.__file__, "w").close()
 
 IPython.get_ipython().register_magic_function(live_log, "cell")
