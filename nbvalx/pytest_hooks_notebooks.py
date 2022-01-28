@@ -300,7 +300,7 @@ cluster.start_and_connect_sync()"""
             for (ipynb_path, nb_tag) in nb_tags.items():
                 os.makedirs(os.path.dirname(ipynb_path), exist_ok=True)
                 with open(ipynb_path, "w") as f:
-                    nbformat.write(nb_tag, str(ipynb_path))
+                    nbformat.write(nb_tag, f)
         # If the work directory is hidden, patch default norecursepatterns so that the files
         # we created will not get ignored
         if work_dir.startswith("."):
