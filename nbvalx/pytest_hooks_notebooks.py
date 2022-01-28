@@ -208,22 +208,28 @@ else:
             # Comment out xfail cells when only asked to create notebooks, so that the user
             # who requested them can run all cells
             if ipynb_action == "create-notebooks" and work_dir != ".":
+                xfail_and_skip_next = False
                 for cell in nb_tag.cells:
                     if cell.cell_type == "code":
-                        if "# PYTEST_XFAIL" in cell.source:
-                            lines = cell.source.splitlines()
+                        lines = cell.source.splitlines()
+                        quotes = "'''" if '"""' in cell.source else '"""'
+                        if xfail_and_skip_next:
+                            lines.insert(0, quotes)
+                            lines.append(quotes + "  # noqa: D")
+                        elif "# PYTEST_XFAIL" in cell.source:
                             xfail_line_index = 0
                             while not lines[xfail_line_index].startswith("# PYTEST_XFAIL"):
                                 xfail_line_index += 1
                             assert xfail_line_index < len(lines)
+                            if "_AND_SKIP_NEXT" in lines[xfail_line_index]:
+                                xfail_and_skip_next = True
                             xfail_code_index = xfail_line_index + 1
                             while lines[xfail_code_index].startswith("#"):
                                 xfail_code_index += 1
                             assert xfail_code_index < len(lines)
-                            quotes = "'''" if '"""' in cell.source else '"""'
                             lines.insert(xfail_code_index, quotes)
                             lines.append(quotes + "  # noqa: D")
-                            cell.source = "\n".join(lines)
+                        cell.source = "\n".join(lines)
             # Add live stdout redirection to file when running notebooks through pytest
             # Such redirection is not added when only asked to create notebooks, as:
             # * the user who requested notebooks may not want redirection to take place
