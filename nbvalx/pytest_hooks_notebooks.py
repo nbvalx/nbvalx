@@ -255,6 +255,7 @@ else:
     if mpi4py.MPI.COMM_WORLD.size > 1:
         live_log_suffix += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
 
+
 def live_log(line: str, cell: str = None) -> None:
     """Redirect notebook to log file."""
     with contextlib.redirect_stdout(open(live_log.__file__, "a", buffering=1)):
@@ -273,6 +274,7 @@ def live_log(line: str, cell: str = None) -> None:
             raise nbvalx.jupyter_magics.SuppressTraceback(e)
         finally:
             print()
+
 
 live_log.__file__ = "{ipynb_path[:-6]}" + live_log_suffix  # noqa: E501
 del live_log_suffix
