@@ -27,15 +27,11 @@ except ImportError:  # pragma: no cover
 else:
     def runtest_setup(item: _pytest.nodes.Item) -> None:
         """Disable garbage collection before running tests."""
-        # Do the normal setup
-        item.setup()
         # Disable garbage collection
         gc.disable()
 
     def runtest_teardown(item: _pytest.nodes.Item, nextitem: typing.Optional[_pytest.nodes.Item]) -> None:
         """Force garbage collection and put a MPI barrier after running tests."""
-        # Do the normal teardown
-        item.teardown()
         # Re-enable garbage collection
         gc.enable()
         # Run garbage gollection
