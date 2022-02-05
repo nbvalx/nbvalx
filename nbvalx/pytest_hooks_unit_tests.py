@@ -18,19 +18,17 @@ import mpi4py
 import mpi4py.MPI
 
 try:
-    import _pytest.config
-    import _pytest.main
-    import _pytest.nodes
+    import pytest
 except ImportError:  # pragma: no cover
     runtest_setup = None
     runtest_teardown = None
 else:
-    def runtest_setup(item: _pytest.nodes.Item) -> None:
+    def runtest_setup(item: pytest.Item) -> None:
         """Disable garbage collection before running tests."""
         # Disable garbage collection
         gc.disable()
 
-    def runtest_teardown(item: _pytest.nodes.Item, nextitem: typing.Optional[_pytest.nodes.Item]) -> None:
+    def runtest_teardown(item: pytest.Item, nextitem: typing.Optional[pytest.Item]) -> None:
         """Force garbage collection and put a MPI barrier after running tests."""
         # Re-enable garbage collection
         gc.enable()

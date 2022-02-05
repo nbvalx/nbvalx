@@ -25,10 +25,8 @@ import re
 import typing
 
 try:
-    import _pytest.config
     import _pytest.main
-    import _pytest.nodes
-    import _pytest.runner
+    import _pytest.pathlib
     import nbformat
     import nbval.plugin
     import py
@@ -41,7 +39,7 @@ except ImportError:  # pragma: no cover
     runtest_makereport = None
     runtest_teardown = None
 else:
-    def addoption(parser: _pytest.main.Parser) -> None:
+    def addoption(parser: pytest.Parser) -> None:
         """Add options to set the number of processes and tag actions."""
         # Number of processors
         parser.addoption("--np", action="store", type=int, default=1, help="Number of MPI processes to use")
@@ -58,7 +56,7 @@ else:
         parser.addoption(
             "--work-dir", type=str, default="", help="Work directory in which to run the tests")
 
-    def sessionstart(session: _pytest.main.Session) -> None:
+    def sessionstart(session: pytest.Session) -> None:
         """Parameterize jupyter notebooks based on available tags."""
         # Verify that nbval is not explicitly provided on the command line
         nbval = session.config.option.nbval
@@ -386,14 +384,14 @@ cluster.start_and_connect_sync()"""
                 yield IPyNbCell.from_parent(
                     cell.parent, name=cell.name, cell_num=cell.cell_num, cell=cell.cell, options=cell.options)
 
-    def collect_file(path: py.path.local, parent: _pytest.nodes.Collector) -> IPyNbFile:
+    def collect_file(path: py.path.local, parent: pytest.Collector) -> IPyNbFile:
         """Collect IPython notebooks using the custom pytest nbval collector."""
         ipynb_action = parent.config.option.ipynb_action
         work_dir = parent.config.option.work_dir
         if path.fnmatch(f"{work_dir}/*.ipynb") and ipynb_action != "create-notebooks":
             return IPyNbFile.from_parent(parent, fspath=path)
 
-    def runtest_setup(item: _pytest.nodes.Item) -> None:
+    def runtest_setup(item: pytest.Item) -> None:
         """Insert skips on cell failure."""
         # Do the normal setup
         item.setup()
@@ -402,7 +400,7 @@ cluster.start_and_connect_sync()"""
             if not hasattr(item.cell, "id") or item.cell.id not in ("cluster_stop", ):
                 pytest.skip("A previous cell failed")
 
-    def runtest_makereport(item: _pytest.nodes.Item, call: _pytest.runner.CallInfo[None]) -> None:
+    def runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:
         """Determine whether the current cell failed or not."""
         if call.when == "call":
             if call.excinfo:
@@ -433,7 +431,7 @@ cluster.start_and_connect_sync()"""
                     # An unexpected error forces the rest of the notebook to be skipped.
                     item._force_skip = True
 
-    def runtest_teardown(item: _pytest.nodes.Item, nextitem: typing.Optional[_pytest.nodes.Item]) -> None:
+    def runtest_teardown(item: pytest.Item, nextitem: typing.Optional[pytest.Item]) -> None:
         """Propagate cell failure."""
         # Do the normal teardown
         item.teardown()
