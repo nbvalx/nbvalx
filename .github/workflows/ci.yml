@@ -42,7 +42,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install nbvalx
         run: |
-          python3 -m pip install .[docs,lint,tests]
+          python3 -m pip install .[docs,lint,notebooks,tests]
       - name: Run flake8 checks on python files
         run: |
           python3 -m flake8 .
