@@ -12,17 +12,19 @@ import typing
 import mpi4py
 
 
-def ParallelSafeWrapper(TempFileContextManager: typing.ContextManager) -> typing.ContextManager:
+def ParallelSafeWrapper(
+    TempFileContextManager: typing.Type[typing.ContextManager[typing.Any]]
+) -> typing.Type[typing.ContextManager[typing.Any]]:
     """Implement a decorator to wrap a parallel-safe version of tempfile context managers."""
 
-    class _(object):
+    class _(typing.ContextManager[str]):
         """A context manager that wraps a parallel-safe version of tempfile context managers."""
 
         def __init__(self, comm: mpi4py.MPI.Intracomm, *args: typing.Any, **kwargs: typing.Any) -> None:
             self._comm = comm
             self._args = args
             self._kwargs = kwargs
-            self._temp_obj = None
+            self._temp_obj: typing.ContextManager[typing.Any] = None  # type: ignore[assignment]
 
         @property
         def name(self) -> str:
@@ -30,8 +32,8 @@ def ParallelSafeWrapper(TempFileContextManager: typing.ContextManager) -> typing
             name = None
             if self._comm.rank == 0:
                 assert self._temp_obj is not None
-                name = self._temp_obj.name
-            return self._comm.bcast(name, root=0)
+                name = self._temp_obj.name  # type: ignore[attr-defined]
+            return self._comm.bcast(name, root=0)  # type: ignore[no-any-return]
 
         def __enter__(self) -> str:
             """Enter the context on rank zero and broadcast the result to the other ranks."""
@@ -43,19 +45,19 @@ def ParallelSafeWrapper(TempFileContextManager: typing.ContextManager) -> typing
             return self.name
 
         def __exit__(
-            self, exception_type: typing.Type[BaseException], exception_value: BaseException,
-            traceback: types.TracebackType
+            self, exception_type: typing.Optional[typing.Type[BaseException]],
+            exception_value: typing.Optional[BaseException],
+            traceback: typing.Optional[types.TracebackType]
         ) -> None:
             """Exit the context on rank zero."""
             self._comm.Barrier()
             if self._comm.rank == 0:
                 self._temp_obj.__exit__(exception_type, exception_value, traceback)
                 del self._temp_obj
-                self._temp_obj = None
             self._comm.Barrier()
 
     return _
 
 
-TemporaryFile = ParallelSafeWrapper(tempfile.NamedTemporaryFile)
+TemporaryFile = ParallelSafeWrapper(tempfile.NamedTemporaryFile)  # type: ignore[arg-type]
 TemporaryDirectory = ParallelSafeWrapper(tempfile.TemporaryDirectory)
