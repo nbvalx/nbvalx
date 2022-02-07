@@ -29,7 +29,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+        include:
+          - python-version: "3.6"
+            run-mypy: false
+          - python-version: "3.7"
+            run-mypy: false
+          - python-version: "3.8"
+            run-mypy: true
+          - python-version: "3.9"
+            run-mypy: true
+          - python-version: "3.10"
+            run-mypy: true
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
@@ -43,9 +53,12 @@ jobs:
       - name: Install nbvalx
         run: |
           python3 -m pip install .[docs,lint,notebooks,tests]
-      - name: Run flake8 checks on python files
+      - name: Run flake8 and mypy checks on python files
         run: |
           python3 -m flake8 .
+          if [[ "${{ matrix.run-mypy }}" == "true" ]]; then
+            python3 -m mypy .
+          fi
       - name: Run documentation generation
         run: |
           cd docs && make html
@@ -55,14 +68,17 @@ jobs:
       - name: Run unit tests (parallel)
         run: |
           COVERAGE_FILE=.coverage_unit_parallel mpirun -n 2 python3 -m coverage run --source=nbvalx --parallel-mode -m pytest tests/unit
-      - name: Run flake8 checks on notebooks test files
+      - name: Run flake8 and mypy checks on notebooks test files
         run: |
           NO_TESTS_COLLECTED=5
           COVERAGE_FILE=.coverage_notebooks_serial_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_serial_create_with_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_parallel_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          nbqa flake8 .
+          python3 -m nbqa flake8 .
+          if [[ "${{ matrix.run-mypy }}" == "true" ]]; then
+            python3 -m nbqa mypy .
+          fi
       - name: Check for stray outputs, counts and metadata in notebooks test files
         uses: RBniCS/check-jupyter-metadata-action@main
         with:
