@@ -16,7 +16,7 @@ class MockMagicsManager(object):
     """A mock IPython magics manager."""
 
     def __init__(self) -> None:
-        self.magics = {
+        self.magics: typing.Dict[str, typing.Dict[str, typing.Callable[[typing.Any], typing.Any]]] = {
             "line": dict(),
             "cell": dict()
         }
@@ -27,13 +27,16 @@ class MockIPythonShell(object):
 
     def __init__(self) -> None:
         self.magics_manager = MockMagicsManager()
-        self.custom_exc_manager = dict()
+        self.custom_exc_manager: typing.Dict[
+            typing.Tuple[typing.Type[BaseException]], typing.Callable[[typing.Any], typing.Any]] = dict()
 
-    def register_magic_function(self, func: typing.Callable, magic_kind: str) -> None:
+    def register_magic_function(self, func: typing.Callable[[typing.Any], typing.Any], magic_kind: str) -> None:
         """Update magics manager."""
         self.magics_manager.magics[magic_kind][func.__name__] = func
 
-    def set_custom_exc(self, exc_tuple: typing.Tuple[typing.Type[BaseException]], handler: typing.Callable) -> None:
+    def set_custom_exc(
+        self, exc_tuple: typing.Tuple[typing.Type[BaseException]], handler: typing.Callable[[typing.Any], typing.Any]
+    ) -> None:
         """Update custom exception handler manager."""
         self.custom_exc_manager[exc_tuple] = handler
 
@@ -47,9 +50,9 @@ def mock_ipython() -> object:
 def test_load_extension(mock_ipython: MockIPythonShell) -> None:
     """Check initialization of extension attributes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)
-    assert nbvalx.jupyter_magics.load_ipython_extension.loaded is True
-    assert nbvalx.jupyter_magics.load_ipython_extension.allowed_tags == []
-    assert nbvalx.jupyter_magics.load_ipython_extension.current_tag is None
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.loaded is True
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.allowed_tags == []
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.current_tag == ""
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)
 
 
@@ -57,7 +60,7 @@ def test_register_run_if_allowed_tags(mock_ipython: MockIPythonShell) -> None:
     """Check registration of allowed tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)
     nbvalx.jupyter_magics.register_run_if_allowed_tags("tag1, tag2")
-    assert nbvalx.jupyter_magics.load_ipython_extension.allowed_tags == ["tag1", "tag2"]
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.allowed_tags == ["tag1", "tag2"]
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)
 
 
@@ -66,7 +69,7 @@ def test_register_run_if_current_tag(mock_ipython: MockIPythonShell) -> None:
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)
     nbvalx.jupyter_magics.register_run_if_allowed_tags("tag1, tag2")
     nbvalx.jupyter_magics.register_run_if_current_tag("tag1")
-    assert nbvalx.jupyter_magics.load_ipython_extension.current_tag == "tag1"
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.current_tag == "tag1"
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)
 
 
@@ -75,7 +78,7 @@ def test_register_run_if_current_tag_without_allowed_tags(mock_ipython: MockIPyt
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)
     with pytest.raises(AssertionError):
         nbvalx.jupyter_magics.register_run_if_current_tag("tag1")
-    assert nbvalx.jupyter_magics.load_ipython_extension.current_tag is None
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.current_tag == ""
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)
 
 
@@ -117,6 +120,6 @@ def test_unload_extension(mock_ipython: MockIPythonShell) -> None:
     """Check deletion of extension attributes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)
-    assert nbvalx.jupyter_magics.load_ipython_extension.loaded is False
-    assert not hasattr(nbvalx.jupyter_magics.load_ipython_extension, "allowed_tags")
-    assert not hasattr(nbvalx.jupyter_magics.load_ipython_extension, "current_tag")
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.loaded is False
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.allowed_tags == []
+    assert nbvalx.jupyter_magics.IPythonExtensionStatus.current_tag == ""
