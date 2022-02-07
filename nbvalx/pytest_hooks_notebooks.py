@@ -79,7 +79,7 @@ def sessionstart(session: pytest.Session) -> None:
     dirs = set()
     for arg in session.config.args:
         dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
-        if os.path.isdir(dir_or_file):
+        if os.path.isdir(str(dir_or_file)):
             for dir_entry in _pytest.pathlib.visit(dir_or_file, session._recurse):
                 if dir_entry.is_file():
                     filepath = str(dir_entry.path)
@@ -87,7 +87,7 @@ def sessionstart(session: pytest.Session) -> None:
                         files.append(filepath)
                 dirs.add(str(dir_or_file))
         else:  # pragma: no cover
-            assert fnmatch.fnmatch(dir_or_file, "**/*.ipynb")
+            assert fnmatch.fnmatch(str(dir_or_file), "**/*.ipynb")
             files.append(str(dir_or_file))
             dirs.add(os.path.dirname(dir_or_file))
     session.config.args = list(dirs)
@@ -309,17 +309,17 @@ cluster.start_and_connect_sync()"""
         norecursepatterns.remove(".*")
 
 
-def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> None:
+def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> None:  # type: ignore[no-any-unimported]
     """Add the cell magic to every cell of the notebook."""
     for cell in nb.cells:
         if cell.cell_type == "code":
             cell.source = additional_cell_magic + "\n" + cell.source
 
 
-class IPyNbCell(nbval.plugin.IPyNbCell):
+class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
     """Customize nbval IPyNbCell to write jupyter cell outputs to log file."""
 
-    _MockExceptionInfo = collections.namedtuple("MockExceptionInfo", ["value"])
+    _MockExceptionInfo = collections.namedtuple("_MockExceptionInfo", ["value"])
 
     def runtest(self) -> None:
         """
@@ -342,8 +342,8 @@ class IPyNbCell(nbval.plugin.IPyNbCell):
             self._write_to_log_file(
                 "Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
 
-    def _transform_jupyter_outputs_to_text(
-            self, outputs: typing.Iterable[nbformat.NotebookNode]) -> typing.Iterable[nbformat.NotebookNode]:
+    def _transform_jupyter_outputs_to_text(  # type: ignore[no-any-unimported]
+            self, outputs: typing.Iterable[nbformat.NotebookNode]) -> str:
         """Transform outputs that are not processed by the %%live_log magic to a text."""
         outputs = nbval.plugin.coalesce_streams(outputs)
         text_outputs = list()
@@ -365,14 +365,14 @@ class IPyNbCell(nbval.plugin.IPyNbCell):
                     print(section + ":")
                     print(self._strip_ansi(content))
 
-    def _strip_ansi(self, content: str) -> None:
+    def _strip_ansi(self, content: str) -> str:
         """Strip colors while writing to file. See strip_ansi on PyPI."""
-        return self._strip_ansi.pattern.sub("", content)
+        return self._strip_ansi_pattern.sub("", content)
 
-    _strip_ansi.pattern = re.compile(r"\x1B\[\d+(;\d+){0,2}m")
+    _strip_ansi_pattern = re.compile(r"\x1B\[\d+(;\d+){0,2}m")
 
 
-class IPyNbFile(nbval.plugin.IPyNbFile):
+class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
     """Customize nbval IPyNbFile to use IPyNbCell defined in this module rather than nbval's one."""
 
     def collect(self) -> typing.Iterable[IPyNbCell]:
@@ -382,15 +382,17 @@ class IPyNbFile(nbval.plugin.IPyNbFile):
                 cell.parent, name=cell.name, cell_num=cell.cell_num, cell=cell.cell, options=cell.options)
 
 
-def collect_file(path: py.path.local, parent: pytest.Collector) -> IPyNbFile:
+def collect_file(path: py.path.local, parent: pytest.Collector) -> typing.Optional[IPyNbFile]:
     """Collect IPython notebooks using the custom pytest nbval collector."""
     ipynb_action = parent.config.option.ipynb_action
     work_dir = parent.config.option.work_dir
     if path.fnmatch(f"{work_dir}/*.ipynb") and ipynb_action != "create-notebooks":
-        return IPyNbFile.from_parent(parent, fspath=path)
+        return IPyNbFile.from_parent(parent, fspath=path)  # type: ignore[no-any-return]
+    else:
+        return None
 
 
-def runtest_setup(item: pytest.Item) -> None:
+def runtest_setup(item: IPyNbFile) -> None:
     """Insert skips on cell failure."""
     # Do the normal setup
     item.setup()
@@ -400,7 +402,7 @@ def runtest_setup(item: pytest.Item) -> None:
             pytest.skip("A previous cell failed")
 
 
-def runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:
+def runtest_makereport(item: IPyNbFile, call: pytest.CallInfo[None]) -> None:
     """Determine whether the current cell failed or not."""
     if call.when == "call":
         if call.excinfo:
@@ -421,9 +423,9 @@ def runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:
                     # This failure was expected: report the reason of xfail.
                     original_repr_failure = item.repr_failure(call.excinfo)
                     call.excinfo._excinfo = (
-                        call.excinfo._excinfo[0],
+                        call.excinfo._excinfo[0],  # type: ignore[index]
                         pytest.xfail.Exception(xfail_reason.capitalize() + "\n" + original_repr_failure),
-                        call.excinfo._excinfo[2])
+                        call.excinfo._excinfo[2])  # type: ignore[index]
                 if xfail_marker in ("PYTEST_XFAIL_AND_SKIP_NEXT", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT"):
                     # The failure, even though expected, forces the rest of the notebook to be skipped.
                     item._force_skip = True
@@ -432,7 +434,7 @@ def runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:
                 item._force_skip = True
 
 
-def runtest_teardown(item: pytest.Item, nextitem: typing.Optional[pytest.Item]) -> None:
+def runtest_teardown(item: IPyNbFile, nextitem: typing.Optional[IPyNbFile]) -> None:
     """Propagate cell failure."""
     # Do the normal teardown
     item.teardown()
