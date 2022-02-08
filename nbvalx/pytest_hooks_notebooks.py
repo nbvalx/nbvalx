@@ -118,9 +118,12 @@ def sessionstart(session: pytest.Session) -> None:
                 elif cell.source.startswith("%register_run_if_allowed_tags"):
                     assert run_if_loaded
                     lines = cell.source.splitlines()
-                    assert len(lines) == 1, (
-                        "Use a standalone cell for %register_run_if_allowed_tags")
-                    line = lines[0].replace("%register_run_if_allowed_tags ", "")
+                    if len(lines) > 1:
+                        assert all([line.endswith("\\") for line in lines[:-1]])
+                        line = " ".join([line.strip().strip("\\") for line in lines])
+                    else:
+                        line = lines[0]
+                    line = line.replace("%register_run_if_allowed_tags ", "")
                     allowed_tags = [tag.strip() for tag in line.split(",")]
         # Create temporary copies for each tag to be processed
         nb_tags = dict()
@@ -149,22 +152,31 @@ def sessionstart(session: pytest.Session) -> None:
                             if not tag_collapse:
                                 cells_tag.append(cell_tag)
                         elif cell.source.startswith("%register_run_if_current_tag"):
-                            assert len(cell.source.splitlines()) == 1, (
-                                "Use a standalone cell for %register_run_if_current_tag")
+                            lines = cell.source.splitlines()
+                            if len(lines) > 1:
+                                assert all([line.endswith("\\") for line in lines[:-1]])
                             if not tag_collapse:
                                 cell_tag.source = f"%register_run_if_current_tag {tag}"
                                 cells_tag.append(cell_tag)
                         elif "%%run_if" in cell.source:
                             if tag_collapse:
                                 lines = cell.source.splitlines()
-                                magic_line_index = 0
-                                while not lines[magic_line_index].startswith("%%run_if"):
-                                    magic_line_index += 1
-                                assert magic_line_index < len(lines)
-                                line = lines[magic_line_index].replace("%%run_if ", "")
+                                magic_line_index_begin = 0
+                                while not lines[magic_line_index_begin].startswith("%%run_if"):
+                                    magic_line_index_begin += 1
+                                assert magic_line_index_begin < len(lines)
+                                line = lines[magic_line_index_begin]
+                                magic_line_index_end = magic_line_index_begin + 1
+                                while line.endswith("\\"):
+                                    line = line.strip("\\") + lines[magic_line_index_end].strip()
+                                    magic_line_index_end += 1
+                                assert magic_line_index_end < len(lines)
+                                line = line.replace("%%run_if ", "")
                                 run_if_tags = [tag.strip() for tag in line.split(",")]
                                 if tag in run_if_tags:
-                                    lines.remove(lines[magic_line_index])
+                                    for magic_line_index in range(
+                                            magic_line_index_end - 1, magic_line_index_begin - 1, - 1):
+                                        lines.remove(lines[magic_line_index])
                                     cell_tag.source = "\n".join(lines)
                                     cells_tag.append(cell_tag)
                             else:

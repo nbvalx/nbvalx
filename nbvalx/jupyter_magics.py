@@ -26,13 +26,20 @@ def register_run_if_allowed_tags(line: str) -> None:
 
 def register_run_if_current_tag(line: str) -> None:
     """Register current tag."""
+    line = line.strip()
     assert line in IPythonExtensionStatus.allowed_tags
     IPythonExtensionStatus.current_tag = line
 
 
-def run_if(line: str, cell: typing.Optional[str] = None) -> None:
+def run_if(line: str, cell: str) -> None:
     """Run cell if the current tag is in the list provided by the magic argument."""
+    cell_lines = cell.splitlines()
+    code_begins = 0
+    while line.endswith("\\"):
+        line = line.strip("\\") + cell_lines[code_begins].strip()
+        code_begins += 1
     allowed_tags = [tag.strip() for tag in line.split(",")]
+    cell = "\n".join(cell_lines[code_begins:])
     if IPythonExtensionStatus.current_tag in allowed_tags:
         result = IPython.get_ipython().run_cell(cell)
         try:  # pragma: no cover
