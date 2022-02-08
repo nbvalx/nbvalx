@@ -6,4 +6,5 @@ API reference
 
    nbvalx.jupyter_magics
    nbvalx.pytest_hooks_notebooks
-   nbavlx.pytest_hooks_unit_tests
+   nbvalx.pytest_hooks_unit_tests
+   nbvalx.tempfile
