@@ -286,7 +286,7 @@ open(live_log.__file__, "w").close()
 
 IPython.get_ipython().register_magic_function(live_log, "cell")
 IPython.get_ipython().set_custom_exc(
-(nbvalx.jupyter_magics.SuppressTraceback, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
+    (nbvalx.jupyter_magics.SuppressTraceback, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
                 live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)
                 live_log_magic_cell.id = "live_log_magic"
                 nb_tag.cells.insert(0, live_log_magic_cell)
