@@ -8,7 +8,6 @@
 import os
 import typing
 
-import mpi4py
 import mpi4py.MPI
 import pytest
 

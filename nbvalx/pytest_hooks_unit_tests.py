@@ -14,7 +14,6 @@ See also: https://github.com/pytest-dev/pytest/blob/main/src/_pytest/hookspec.py
 import gc
 import typing
 
-import mpi4py
 import mpi4py.MPI
 import pytest
 

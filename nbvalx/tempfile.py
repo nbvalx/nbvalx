@@ -9,7 +9,7 @@ import tempfile
 import types
 import typing
 
-import mpi4py
+import mpi4py.MPI
 
 
 def ParallelSafeWrapper(

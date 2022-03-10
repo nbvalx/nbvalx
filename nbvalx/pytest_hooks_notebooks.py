@@ -251,7 +251,6 @@ import nbvalx.jupyter_magics
 
 live_log_suffix = ".log"
 try:
-    import mpi4py
     import mpi4py.MPI
 except ImportError:
     pass
