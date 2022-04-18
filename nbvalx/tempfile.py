@@ -20,7 +20,9 @@ def ParallelSafeWrapper(
     class _(typing.ContextManager[str]):
         """A context manager that wraps a parallel-safe version of tempfile context managers."""
 
-        def __init__(self, comm: mpi4py.MPI.Intracomm, *args: typing.Any, **kwargs: typing.Any) -> None:
+        def __init__(
+            self, comm: mpi4py.MPI.Intracomm, *args: typing.Any, **kwargs: typing.Any  # noqa: ANN401
+        ) -> None:
             self._comm = comm
             self._args = args
             self._kwargs = kwargs
