@@ -105,7 +105,7 @@ def sessionstart(session: pytest.Session) -> None:
     for filepath in files:
         # Read in notebook
         with open(filepath) as f:
-            nb = nbformat.read(f, as_version=4)
+            nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
         # Determine if the run_if extension is used
         run_if_loaded = False
         allowed_tags = []
@@ -286,7 +286,7 @@ open(live_log.__file__, "w").close()
 IPython.get_ipython().register_magic_function(live_log, "cell")
 IPython.get_ipython().set_custom_exc(
     (nbvalx.jupyter_magics.SuppressTraceback, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
-                live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)
+                live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)  # type: ignore[no-untyped-call]
                 live_log_magic_cell.id = "live_log_magic"
                 nb_tag.cells.insert(0, live_log_magic_cell)
         # Add parallel support
@@ -299,19 +299,19 @@ IPython.get_ipython().set_custom_exc(
 
 cluster = ipp.Cluster(engines="MPI", profile="mpi", n={np})
 cluster.start_and_connect_sync()"""
-                cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)
+                cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)  # type: ignore[no-untyped-call]
                 cluster_start_cell.id = "cluster_start"
                 nb_tag.cells.insert(0, cluster_start_cell)
                 # Add a cell at the end to stop the ipyparallel cluster
                 cluster_stop_code = """cluster.stop_cluster_sync()"""
-                cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)
+                cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)  # type: ignore[no-untyped-call]
                 cluster_stop_cell.id = "cluster_stop"
                 nb_tag.cells.append(cluster_stop_cell)
         # Write modified notebooks to the work directory
         for (ipynb_path, nb_tag) in nb_tags.items():
             os.makedirs(os.path.dirname(ipynb_path), exist_ok=True)
             with open(ipynb_path, "w") as f:
-                nbformat.write(nb_tag, f)
+                nbformat.write(nb_tag, f)  # type: ignore[no-untyped-call]
     # If the work directory is hidden, patch default norecursepatterns so that the files
     # we created will not get ignored
     if work_dir.startswith("."):
@@ -320,7 +320,7 @@ cluster.start_and_connect_sync()"""
         norecursepatterns.remove(".*")
 
 
-def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> None:  # type: ignore[no-any-unimported]
+def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> None:
     """Add the cell magic to every cell of the notebook."""
     for cell in nb.cells:
         if cell.cell_type == "code":
@@ -353,7 +353,7 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
             self._write_to_log_file(
                 "Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
 
-    def _transform_jupyter_outputs_to_text(  # type: ignore[no-any-unimported]
+    def _transform_jupyter_outputs_to_text(
             self, outputs: typing.Iterable[nbformat.NotebookNode]) -> str:
         """Transform outputs that are not processed by the %%live_log magic to a text."""
         outputs = nbval.plugin.coalesce_streams(outputs)
