@@ -101,6 +101,8 @@ def sessionstart(session: pytest.Session) -> None:
                         filepath = str(dir_entry.path)
                         if fnmatch.fnmatch(filepath, "**/*.ipynb"):
                             os.remove(filepath)
+                            if filepath in files:
+                                files.remove(filepath)
     # Process each notebook
     for filepath in files:
         # Read in notebook
