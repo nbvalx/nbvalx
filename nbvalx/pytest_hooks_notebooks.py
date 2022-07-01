@@ -55,6 +55,9 @@ def sessionstart(session: pytest.Session) -> None:
     # Verify that nbval is not explicitly provided on the command line
     nbval = session.config.option.nbval
     assert not nbval, "--nbval is implicitly enabled, do not provide it on the command line"
+    # Verify that nbval_lax is not explicitly provided on the command line
+    nbval_lax = session.config.option.nbval_lax
+    assert not nbval_lax, "--nbval-lax is implicitly enabled, do not provide it on the command line"
     # Verify parallel options
     np = session.config.option.np
     assert np > 0
@@ -387,6 +390,11 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
 
 class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
     """Customize nbval IPyNbFile to use IPyNbCell defined in this module rather than nbval's one."""
+
+    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:  # noqa: ANN401
+        """Customize parent initialization by disabling output comparison."""
+        super(IPyNbFile, self).__init__(*args, **kwargs)
+        self.compare_outputs = False
 
     def collect(self) -> typing.Iterable[IPyNbCell]:
         """Strip nbval's IPyNbCell to the corresponding class defined in this module."""
