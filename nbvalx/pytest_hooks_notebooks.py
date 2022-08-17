@@ -357,6 +357,8 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
             # Write other jupyter outputs to log file
             self._write_to_log_file(
                 "Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
+        # Write cell name to log file
+        self._write_to_log_file("Cell name", self.name)
 
     def _transform_jupyter_outputs_to_text(
             self, outputs: typing.Iterable[nbformat.NotebookNode]) -> str:
@@ -379,7 +381,10 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
             for log_file in glob.glob(str(self.parent.fspath)[:-6] + ".log*"):
                 with contextlib.redirect_stdout(open(log_file, "a", buffering=1)):
                     print(section + ":")
-                    print(self._strip_ansi(content))
+                    content = self._strip_ansi(content)
+                    if content != "":
+                        print(content)
+                    print()
 
     def _strip_ansi(self, content: str) -> str:
         """Strip colors while writing to file. See strip_ansi on PyPI."""
