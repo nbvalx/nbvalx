@@ -21,6 +21,7 @@ import copy
 import fnmatch
 import glob
 import os
+import pathlib
 import re
 import typing
 
@@ -32,7 +33,7 @@ import py
 import pytest
 
 
-def addoption(parser: pytest.Parser) -> None:
+def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) -> None:
     """Add options to set the number of processes and tag actions."""
     # Number of processors
     parser.addoption("--np", action="store", type=int, default=1, help="Number of MPI processes to use")
@@ -408,12 +409,12 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
                 cell.parent, name=cell.name, cell_num=cell.cell_num, cell=cell.cell, options=cell.options)
 
 
-def collect_file(path: py.path.local, parent: pytest.Collector) -> typing.Optional[IPyNbFile]:
+def collect_file(file_path: pathlib.Path, path: py.path.local, parent: pytest.Collector) -> typing.Optional[IPyNbFile]:
     """Collect IPython notebooks using the custom pytest nbval collector."""
     ipynb_action = parent.config.option.ipynb_action
     work_dir = parent.config.option.work_dir
-    if path.fnmatch(f"{work_dir}/*.ipynb") and ipynb_action != "create-notebooks":
-        return IPyNbFile.from_parent(parent, fspath=path)  # type: ignore[no-any-return]
+    if file_path.match(f"{work_dir}/*.ipynb") and ipynb_action != "create-notebooks":
+        return IPyNbFile.from_parent(parent, path=file_path)  # type: ignore[no-any-return]
     else:
         return None
 
