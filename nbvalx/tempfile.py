@@ -12,12 +12,40 @@ import typing
 import mpi4py.MPI
 
 
+class TempFileContextManagerStub(typing.ContextManager[str]):
+    """Stub for tempfile context managers."""
+
+    def __init__(
+        self, *args: typing.Any, **kwargs: typing.Any  # noqa: ANN401
+    ) -> None:  # pragma: no cover
+        ...
+
+    @property
+    def name(self) -> str:  # pragma: no cover
+        """Return the path of the temporary object."""
+        ...
+
+
+class ParallelSafeContextManagerStub(typing.ContextManager[str]):
+    """Stub for parallel safe tempfile context managers."""
+
+    def __init__(
+        self, comm: mpi4py.MPI.Intracomm, *args: typing.Any, **kwargs: typing.Any  # noqa: ANN401
+    ) -> None:  # pragma: no cover
+        ...
+
+    @property
+    def name(self) -> str:  # pragma: no cover
+        """Return the path of the temporary object."""
+        ...
+
+
 def ParallelSafeWrapper(
-    TempFileContextManager: typing.Type[typing.ContextManager[typing.Any]]
-) -> typing.Type[typing.ContextManager[typing.Any]]:
+    TempFileContextManager: typing.Type[TempFileContextManagerStub]
+) -> typing.Type[ParallelSafeContextManagerStub]:
     """Implement a decorator to wrap a parallel-safe version of tempfile context managers."""
 
-    class _(typing.ContextManager[str]):
+    class _(ParallelSafeContextManagerStub):
         """A context manager that wraps a parallel-safe version of tempfile context managers."""
 
         def __init__(
@@ -26,7 +54,7 @@ def ParallelSafeWrapper(
             self._comm = comm
             self._args = args
             self._kwargs = kwargs
-            self._temp_obj: typing.ContextManager[typing.Any] = None  # type: ignore[assignment]
+            self._temp_obj: typing.Optional[TempFileContextManagerStub] = None
 
         @property
         def name(self) -> str:
@@ -34,7 +62,7 @@ def ParallelSafeWrapper(
             name = None
             if self._comm.rank == 0:
                 assert self._temp_obj is not None
-                name = self._temp_obj.name  # type: ignore[attr-defined]
+                name = self._temp_obj.name
             return self._comm.bcast(name, root=0)  # type: ignore[no-any-return]
 
         def __enter__(self) -> str:
@@ -54,6 +82,7 @@ def ParallelSafeWrapper(
             """Exit the context on rank zero."""
             self._comm.Barrier()
             if self._comm.rank == 0:
+                assert self._temp_obj is not None
                 self._temp_obj.__exit__(exception_type, exception_value, traceback)
                 del self._temp_obj
             self._comm.Barrier()
@@ -62,4 +91,4 @@ def ParallelSafeWrapper(
 
 
 TemporaryFile = ParallelSafeWrapper(tempfile.NamedTemporaryFile)  # type: ignore[arg-type]
-TemporaryDirectory = ParallelSafeWrapper(tempfile.TemporaryDirectory)
+TemporaryDirectory = ParallelSafeWrapper(tempfile.TemporaryDirectory)  # type: ignore[arg-type]
