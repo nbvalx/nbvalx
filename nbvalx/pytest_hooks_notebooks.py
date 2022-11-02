@@ -409,7 +409,9 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
                 cell.parent, name=cell.name, cell_num=cell.cell_num, cell=cell.cell, options=cell.options)
 
 
-def collect_file(file_path: pathlib.Path, path: py.path.local, parent: pytest.Collector) -> typing.Optional[IPyNbFile]:
+def collect_file(  # type: ignore[no-any-unimported]
+    file_path: pathlib.Path, path: py.path.local, parent: pytest.Collector
+) -> typing.Optional[IPyNbFile]:
     """Collect IPython notebooks using the custom pytest nbval collector."""
     ipynb_action = parent.config.option.ipynb_action
     work_dir = parent.config.option.work_dir
