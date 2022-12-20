@@ -21,7 +21,7 @@ class TempFileContextManagerStub(typing.ContextManager[str]):
         ...
 
     @property
-    def name(self) -> str:  # pragma: no cover
+    def name(self) -> str:  # type: ignore[empty-body] # pragma: no cover
         """Return the path of the temporary object."""
         ...
 
@@ -35,7 +35,7 @@ class ParallelSafeContextManagerStub(typing.ContextManager[str]):
         ...
 
     @property
-    def name(self) -> str:  # pragma: no cover
+    def name(self) -> str:  # type: ignore[empty-body] # pragma: no cover
         """Return the path of the temporary object."""
         ...
 
