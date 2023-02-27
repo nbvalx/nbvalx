@@ -41,7 +41,7 @@ def run_if(line: str, cell: str) -> None:
     allowed_tags = [tag.strip() for tag in line.split(",")]
     cell = "\n".join(cell_lines[code_begins:])
     if IPythonExtensionStatus.current_tag in allowed_tags:
-        result = IPython.get_ipython().run_cell(cell)
+        result = IPython.get_ipython().run_cell(cell)  # type: ignore[attr-defined]
         try:  # pragma: no cover
             result.raise_error()
         except Exception as e:  # pragma: no cover
@@ -56,7 +56,7 @@ class SuppressTraceback(Exception):
     pass
 
 
-def suppress_traceback_handler(  # type: ignore[no-any-unimported]
+def suppress_traceback_handler(
     ipython: IPython.core.interactiveshell.InteractiveShell, etype: typing.Type[BaseException],
     value: BaseException, tb: types.TracebackType, tb_offset: typing.Optional[int] = None
 ) -> None:  # pragma: no cover
@@ -64,20 +64,20 @@ def suppress_traceback_handler(  # type: ignore[no-any-unimported]
     pass
 
 
-def load_ipython_extension(  # type: ignore[no-any-unimported]
+def load_ipython_extension(
     ipython: IPython.core.interactiveshell.InteractiveShell
 ) -> None:
     """Register magics defined in this module when the extension loads."""
-    ipython.register_magic_function(register_run_if_allowed_tags, "line")
-    ipython.register_magic_function(register_run_if_current_tag, "line")
-    ipython.register_magic_function(run_if, "cell")
-    ipython.set_custom_exc((SuppressTraceback, ), suppress_traceback_handler)
+    ipython.register_magic_function(register_run_if_allowed_tags, "line")  # type: ignore[no-untyped-call]
+    ipython.register_magic_function(register_run_if_current_tag, "line")  # type: ignore[no-untyped-call]
+    ipython.register_magic_function(run_if, "cell")  # type: ignore[no-untyped-call]
+    ipython.set_custom_exc((SuppressTraceback, ), suppress_traceback_handler)  # type: ignore[no-untyped-call]
     IPythonExtensionStatus.loaded = True
     IPythonExtensionStatus.allowed_tags = []
     IPythonExtensionStatus.current_tag = ""
 
 
-def unload_ipython_extension(  # type: ignore[no-any-unimported]
+def unload_ipython_extension(
     ipython: IPython.core.interactiveshell.InteractiveShell
 ) -> None:
     """Unregister the magics defined in this module when the extension unloads."""
