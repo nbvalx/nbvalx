@@ -112,8 +112,13 @@ jobs:
           name: "notebooks-logs-${{ matrix.python-version }}"
           path: |
             **/.ipynb_pytest/**/*.log*
+
+  warn:
+    runs-on: ubuntu-latest
+    if: github.repository == 'multiphenics/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v3
       - name: Warn if scheduled workflow is about to be disabled
-        if: github.repository == 'multiphenics/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
         uses: fem-on-colab/warn-workflow-about-to-be-disabled-action@main
         with:
           workflow-filename: ci.yml
