@@ -81,9 +81,9 @@ def unload_ipython_extension(
     ipython: IPython.core.interactiveshell.InteractiveShell
 ) -> None:
     """Unregister the magics defined in this module when the extension unloads."""
-    del ipython.magics_manager.magics["line"]["register_run_if_allowed_tags"]
-    del ipython.magics_manager.magics["line"]["register_run_if_current_tag"]
-    del ipython.magics_manager.magics["cell"]["run_if"]
+    del ipython.magics_manager.magics["line"]["register_run_if_allowed_tags"]  # type: ignore[union-attr]
+    del ipython.magics_manager.magics["line"]["register_run_if_current_tag"]  # type: ignore[union-attr]
+    del ipython.magics_manager.magics["cell"]["run_if"]  # type: ignore[union-attr]
     IPythonExtensionStatus.loaded = False
     IPythonExtensionStatus.allowed_tags = []
     IPythonExtensionStatus.current_tag = ""
