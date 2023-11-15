@@ -45,6 +45,9 @@ jobs:
           - python-version: "3.11"
             run-flake8: true
             run-mypy: true
+          - python-version: "3.12"
+            run-flake8: true
+            run-mypy: true
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
