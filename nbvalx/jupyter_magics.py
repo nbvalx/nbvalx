@@ -41,7 +41,7 @@ def run_if(line: str, cell: str) -> None:
     allowed_tags = [tag.strip() for tag in line.split(",")]
     cell = "\n".join(cell_lines[code_begins:])
     if IPythonExtensionStatus.current_tag in allowed_tags:
-        result = IPython.get_ipython().run_cell(cell)  # type: ignore[attr-defined]
+        result = IPython.get_ipython().run_cell(cell)  # type: ignore[attr-defined, no-untyped-call]
         try:  # pragma: no cover
             result.raise_error()
         except Exception as e:  # pragma: no cover
