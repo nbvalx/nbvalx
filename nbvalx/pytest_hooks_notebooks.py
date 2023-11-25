@@ -243,7 +243,7 @@ def sessionstart(session: pytest.Session) -> None:
         # Add live stdout redirection to file when running notebooks through pytest
         # Such redirection is not added when only asked to create notebooks, as:
         # * the user who requested notebooks may not want redirection to take place
-        # * the additional cell may interfere with flake8 checks
+        # * the additional cell may interfere with linting
         if ipynb_action != "create-notebooks":
             for (ipynb_path, nb_tag) in nb_tags.items():
                 # Add the live_log magic to every existing cell
