@@ -30,9 +30,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.7"
-            run-flake8: false
-            run-mypy: false
           - python-version: "3.8"
             run-flake8: true
             run-mypy: true
