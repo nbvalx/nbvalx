@@ -71,7 +71,7 @@ jobs:
           fi
       - name: Run documentation generation
         run: |
-          cd docs && make html
+          cd docs && python3 -m sphinx -W -b html . build/html
       - name: Run unit tests (serial)
         run: |
           COVERAGE_FILE=.coverage_unit_serial python3 -m coverage run --source=nbvalx -m pytest tests/unit
