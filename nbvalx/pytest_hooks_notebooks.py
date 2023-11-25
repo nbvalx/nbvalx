@@ -224,8 +224,8 @@ def sessionstart(session: pytest.Session) -> None:
                     lines = cell.source.splitlines()
                     quotes = "'''" if '"""' in cell.source else '"""'
                     if xfail_and_skip_next:
-                        lines.insert(0, quotes)
-                        lines.append(quotes + "  # noqa: D")
+                        lines.insert(0, quotes + "Skip cell due to a previously xfailed cell.\n")
+                        lines.append(quotes)
                     elif "# PYTEST_XFAIL" in cell.source:
                         xfail_line_index = 0
                         while not lines[xfail_line_index].startswith("# PYTEST_XFAIL"):
@@ -237,8 +237,8 @@ def sessionstart(session: pytest.Session) -> None:
                         while lines[xfail_code_index].startswith("#"):
                             xfail_code_index += 1
                         assert xfail_code_index < len(lines)
-                        lines.insert(xfail_code_index, quotes)
-                        lines.append(quotes + "  # noqa: D")
+                        lines.insert(xfail_code_index, quotes + "Expect this cell to fail.\n")
+                        lines.append(quotes)
                     cell.source = "\n".join(lines)
         # Add live stdout redirection to file when running notebooks through pytest
         # Such redirection is not added when only asked to create notebooks, as:
@@ -280,7 +280,7 @@ def live_log(line: str, cell: str = None) -> None:
         except Exception as e:
             # The exception has already been printed to the terminal, there is
             # no need of printing it again
-            raise nbvalx.jupyter_magics.SuppressTraceback(e)
+            raise nbvalx.jupyter_magics.SuppressTracebackMockError(e)
         finally:
             print()
 
@@ -291,7 +291,7 @@ open(live_log.__file__, "w").close()
 
 IPython.get_ipython().register_magic_function(live_log, "cell")
 IPython.get_ipython().set_custom_exc(
-    (nbvalx.jupyter_magics.SuppressTraceback, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
+    (nbvalx.jupyter_magics.SuppressTracebackMockError, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
                 live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)  # type: ignore[no-untyped-call]
                 live_log_magic_cell.id = "live_log_magic"
                 nb_tag.cells.insert(0, live_log_magic_cell)

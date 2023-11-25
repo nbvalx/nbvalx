@@ -40,12 +40,12 @@ class ParallelSafeContextManagerStub(typing.ContextManager[str]):
         ...
 
 
-def ParallelSafeWrapper(
-    TempFileContextManager: typing.Type[TempFileContextManagerStub]
+def ParallelSafeWrapper(  # noqa: N802
+    TempFileContextManager: typing.Type[TempFileContextManagerStub]  # noqa: N803
 ) -> typing.Type[ParallelSafeContextManagerStub]:
     """Implement a decorator to wrap a parallel-safe version of tempfile context managers."""
 
-    class _(ParallelSafeContextManagerStub):
+    class _(ParallelSafeContextManagerStub):  # noqa: N801
         """A context manager that wraps a parallel-safe version of tempfile context managers."""
 
         def __init__(

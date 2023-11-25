@@ -43,9 +43,12 @@ jobs:
       - name: Install nbvalx
         run: |
           python3 -m pip install .[docs,lint,notebooks,tests]
-      - name: Run flake8 on python files
+      - name: Clean build files
         run: |
-          python3 -m flake8 .
+          git clean -xdf
+      - name: Run ruff on python files
+        run: |
+          python3 -m ruff .
       - name: Run isort on python files
         run: |
           python3 -m isort --check --diff .
@@ -72,9 +75,9 @@ jobs:
           COVERAGE_FILE=.coverage_notebooks_parallel_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
         shell: bash
-      - name: Run flake8 on notebooks test files
+      - name: Run ruff on notebooks test files
         run: |
-          python3 -m nbqa flake8 .
+          python3 -m nbqa ruff .
       - name: Run isort on notebooks test files
         run: |
           python3 -m nbqa isort --check --diff .

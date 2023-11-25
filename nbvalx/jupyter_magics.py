@@ -15,7 +15,7 @@ class IPythonExtensionStatus(object):
     """Storage for extension status."""
 
     loaded = False
-    allowed_tags: typing.List[str] = []
+    allowed_tags: typing.ClassVar[typing.List[str]] = []
     current_tag = ""
 
 
@@ -47,10 +47,10 @@ def run_if(line: str, cell: str) -> None:
         except Exception as e:  # pragma: no cover
             # The exception has already been printed to the terminal, there is
             # no need of printing it again
-            raise SuppressTraceback(e)
+            raise SuppressTracebackMockError(e)
 
 
-class SuppressTraceback(Exception):
+class SuppressTracebackMockError(Exception):
     """Custom exception type used in run_if magic to suppress redundant traceback."""
 
     pass
@@ -71,7 +71,7 @@ def load_ipython_extension(
     ipython.register_magic_function(register_run_if_allowed_tags, "line")  # type: ignore[no-untyped-call]
     ipython.register_magic_function(register_run_if_current_tag, "line")  # type: ignore[no-untyped-call]
     ipython.register_magic_function(run_if, "cell")  # type: ignore[no-untyped-call]
-    ipython.set_custom_exc((SuppressTraceback, ), suppress_traceback_handler)  # type: ignore[no-untyped-call]
+    ipython.set_custom_exc((SuppressTracebackMockError, ), suppress_traceback_handler)  # type: ignore[no-untyped-call]
     IPythonExtensionStatus.loaded = True
     IPythonExtensionStatus.allowed_tags = []
     IPythonExtensionStatus.current_tag = ""
