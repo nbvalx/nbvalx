@@ -29,22 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - python-version: "3.8"
-            run-flake8: true
-            run-mypy: true
-          - python-version: "3.9"
-            run-flake8: true
-            run-mypy: true
-          - python-version: "3.10"
-            run-flake8: true
-            run-mypy: true
-          - python-version: "3.11"
-            run-flake8: true
-            run-mypy: true
-          - python-version: "3.12"
-            run-flake8: true
-            run-mypy: true
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -58,14 +43,15 @@ jobs:
       - name: Install nbvalx
         run: |
           python3 -m pip install .[docs,lint,notebooks,tests]
-      - name: Run flake8 and mypy checks on python files
+      - name: Run flake8 on python files
         run: |
-          if [[ "${{ matrix.run-flake8 }}" == "true" ]]; then
-            python3 -m flake8 .
-          fi
-          if [[ "${{ matrix.run-mypy }}" == "true" ]]; then
-            python3 -m mypy .
-          fi
+          python3 -m flake8 .
+      - name: Run isort on python files
+        run: |
+          python3 -m isort --check --diff .
+      - name: Run mypy on python files
+        run: |
+          python3 -m mypy .
       - name: Run documentation generation
         run: |
           cd docs && python3 -m sphinx -W -b html . build/html
@@ -75,19 +61,23 @@ jobs:
       - name: Run unit tests (parallel)
         run: |
           COVERAGE_FILE=.coverage_unit_parallel mpirun -n 2 python3 -m coverage run --source=nbvalx --parallel-mode -m pytest tests/unit
-      - name: Run flake8 and mypy checks on notebooks test files
+      - name: Generate notebooks test files
         run: |
           NO_TESTS_COLLECTED=5
           COVERAGE_FILE=.coverage_notebooks_serial_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_serial_create_with_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_parallel_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          if [[ "${{ matrix.run-flake8 }}" == "true" ]]; then
-            python3 -m nbqa flake8 .
-          fi
-          if [[ "${{ matrix.run-mypy }}" == "true" ]]; then
-            python3 -m nbqa mypy .
-          fi
+        shell: bash
+      - name: Run flake8 on notebooks test files
+        run: |
+          python3 -m nbqa flake8 .
+      - name: Run isort on notebooks test files
+        run: |
+          python3 -m nbqa isort --check --diff .
+      - name: Run mypy on notebooks test files
+        run: |
+          python3 -m nbqa mypy .
       - name: Check for stray outputs, counts and metadata in notebooks test files
         uses: RBniCS/check-jupyter-metadata-action@main
         with:
