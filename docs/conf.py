@@ -8,7 +8,7 @@
 # Project information
 project = "nbvalx"
 copyright = "2022-2023, the nbvalx authors"
-author = "Francesco Ballarin (and contributors)"
+author = "Francesco Ballarin"
 
 # General configuration
 extensions = [
