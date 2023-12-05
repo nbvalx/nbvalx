@@ -90,19 +90,12 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = "ipyparallel"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "nbformat"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "nbval.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "py"
+module = [
+    "ipyparallel",
+    "nbformat",
+    "nbval.*",
+    "py"
+]
 ignore_missing_imports = true
 
 [tool.ruff]
