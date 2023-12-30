@@ -3,17 +3,7 @@
 # This file is part of nbvalx.
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""
-Utility functions to be used in pytest configuration file for notebooks tests.
-
-nbvalx changes the default behavior of nbval in the following three ways:
-    1) Users may start a ipyparallel Cluster and run notebooks tests in parallel
-    2) New markers are introduced to mark cells as xfail
-    3) Handle selective cell run using tags introduced in magics.py
-    4) Print outputs to log file
-
-See also: https://github.com/pytest-dev/pytest/blob/main/src/_pytest/hookspec.py for type hints.
-"""
+"""Utility functions to be used in pytest configuration file for notebooks tests."""
 
 import collections
 import contextlib

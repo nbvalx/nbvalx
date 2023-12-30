@@ -3,13 +3,7 @@
 # This file is part of nbvalx.
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""
-Utility functions to be used in pytest configuration file for unit tests.
-
-Such functions are mainly responsible to call garbage collection and put a MPI barrier after each test.
-
-See also: https://github.com/pytest-dev/pytest/blob/main/src/_pytest/hookspec.py for type hints.
-"""
+"""Utility functions to be used in pytest configuration file for unit tests."""
 
 import gc
 import typing
