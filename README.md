@@ -4,6 +4,8 @@
 
 **nbvalx** is currently developed and maintained at [Università Cattolica del Sacro Cuore](https://www.unicatt.it/) by [Dr. Francesco Ballarin](https://www.francescoballarin.it).
 
+**nbvalx** can be `pip install`ed from [its GitHub repository](https://github.com/multiphenics/nbvalx/) or from [PyPI](https://pypi.org/project/nbvalx/)
+
 ## Cell magics for conditional running based on tags
 Add a cell with
 ```
@@ -66,3 +68,8 @@ The `pytest` hooks which can be customized in this way are:
 For clarity, the hooks implemented in [`nbvalx/pytest_unit_tests.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) do not have a `pytest_` prefix, as it will be the user's responsability to pick them up and assign them to the corresponding `pytest` hook in a custom `conftest.py`, as show in [`tests/unit/conftest.py`](https://github.com/multiphenics/nbvalx/blob/main/tests/unit/conftest.py).
 
 The hooks are typically employed to obtain a `MPI`-parallel safe execution of python unit tests by calling garbage collection and putting a `MPI` barrier after each test.
+
+## Custom pytest hooks for unit tests
+The file [`nbvalx/tempfile.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/tempfile.py) contains `MPI` parallel-safe context managers to create temporary files and directories. Similarly to the `tempfile` module in the standard library, the following context managers are provided:
+* `nbvalx.tempfile.TemporaryDirectory`,
+* `nbvalx.tempfile.TemporaryFile`.
