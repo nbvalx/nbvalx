@@ -12,6 +12,7 @@ maintainers = [
     {name = "Francesco Ballarin", email = "francesco.ballarin@unicatt.it"},
 ]
 description = "Collection of pytest utils built on top of nbval"
+readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.8"
 classifiers = [
