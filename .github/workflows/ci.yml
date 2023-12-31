@@ -1,4 +1,4 @@
-name: nbvalx CI
+name: CI
 
 on:
   push:
