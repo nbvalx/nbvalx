@@ -10,6 +10,22 @@ on:
   schedule:
     - cron: "0 0 * * WED"
   workflow_dispatch:
+    inputs:
+      index:
+        description: "The package index, e.g. PyPI or TestPyPI, from which to install the package. If empty, the package will not be installed from any package index, but from the current git clone"
+      index_version:
+        description: "The version of the package to be installed from the package index. If empty, the latest version will be installed. Only used when index is non empty."
+  workflow_call:
+    inputs:
+      ref:
+        description: "The branch, tag or SHA to checkout"
+        type: string
+      index:
+        description: "The package index, e.g. PyPI or TestPyPI, from which to install the package. If empty, the package will not be installed from any package index, but from the current git clone"
+        type: string
+      index_version:
+        description: "The version of the package to be installed from the package index. If empty, the latest version will be installed. Only used when index is non empty."
+        type: string
 
 jobs:
   test:
@@ -20,6 +36,8 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Install OpenMPI
         run: |
           sudo apt install libopenmpi-dev
@@ -27,7 +45,56 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install nbvalx
+      - name: Wait for package index availability (PyPI and TestPyPI only)
+        if: (inputs || github.event.inputs).index != '' && (inputs || github.event.inputs).index_version != ''
+        run: |
+          INDEX=${{ (inputs || github.event.inputs).index }}
+          INDEX_VERSION=${{ (inputs || github.event.inputs).index_version }}
+          PACKAGE_NAME="nbvalx"
+          if [[ "${INDEX}" == "TestPyPI" ]]; then
+            INDEX_URL=https://test.pypi.org
+          elif [[ "${INDEX}" == "PyPI" ]]; then
+            INDEX_URL=https://pypi.org
+          else
+            echo "Invalid package index" && exit 1
+          fi
+          COUNTER=0
+          INDEX_VERSION_FOUND=0
+          while [[ ${INDEX_VERSION_FOUND} -ne 1 ]]; do
+            pip install --no-cache-dir --index-url ${INDEX_URL}/simple/ ${PACKAGE_NAME}== 2> all_${PACKAGE_NAME}_versions || true
+            if grep -q ${INDEX_VERSION} all_${PACKAGE_NAME}_versions; then
+              INDEX_VERSION_FOUND=1
+            fi
+            [[ ${INDEX_VERSION_FOUND} -ne 1 && ${COUNTER} -eq 5 ]] && echo "Giving up on finding version ${INDEX_VERSION} on ${INDEX_URL}" && exit 1
+            [[ ${INDEX_VERSION_FOUND} -ne 1 ]] && echo "Cannot find version ${INDEX_VERSION} on ${INDEX_URL}, attempt ${COUNTER}: trying again after a short pause" && sleep 10
+            [[ ${INDEX_VERSION_FOUND} -eq 1 ]] && echo "Found version ${INDEX_VERSION} on ${INDEX_URL}, attempt ${COUNTER}"
+            COUNTER=$((COUNTER+1))
+          done
+        shell: bash
+      - name: Install nbvalx (PyPI and TestPyPI only)
+        if: (inputs || github.event.inputs).index != ''
+        run: |
+          INDEX=${{ (inputs || github.event.inputs).index }}
+          INDEX_VERSION=${{ (inputs || github.event.inputs).index_version }}
+          PACKAGE_NAME="nbvalx"
+          if [[ "${INDEX}" == "TestPyPI" ]]; then
+            INDEX_FLAGS="--no-cache-dir --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/"
+          elif [[ "${INDEX}" == "PyPI" ]]; then
+            INDEX_FLAGS="--no-cache-dir"
+          else
+            echo "Invalid package index" && exit 1
+          fi
+          if [[ -n "${INDEX_VERSION}" ]]; then
+            PACKAGE_VERSION="==${INDEX_VERSION}"
+            echo "Installing version ${INDEX_VERSION} from ${INDEX}"
+          else
+            PACKAGE_VERSION=""
+            echo "Installing latest version from ${INDEX}"
+          fi
+          python3 -m pip install ${INDEX_FLAGS} ${PACKAGE_NAME}[docs,lint,notebooks,tests]${PACKAGE_VERSION}
+        shell: bash
+      - name: Install nbvalx (git clone only)
+        if: (inputs || github.event.inputs).index == ''
         run: |
           python3 -m pip install .[docs,lint,notebooks,tests]
       - name: Clean build files
