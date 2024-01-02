@@ -126,10 +126,10 @@ jobs:
       - name: Generate notebooks test files
         run: |
           NO_TESTS_COLLECTED=5
-          COVERAGE_FILE=.coverage_notebooks_serial_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          COVERAGE_FILE=.coverage_notebooks_serial_create_with_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          COVERAGE_FILE=.coverage_notebooks_parallel_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          COVERAGE_FILE=.coverage_notebooks_serial_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          COVERAGE_FILE=.coverage_notebooks_serial_create_with_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          COVERAGE_FILE=.coverage_notebooks_parallel_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
         shell: bash
       - name: Run ruff on notebooks test files
         run: |
@@ -146,17 +146,29 @@ jobs:
           pattern: "tests/notebooks/data/**/*.ipynb"
       - name: Run notebooks tests (serial, without collapse)
         run: |
-          COVERAGE_FILE=.coverage_notebooks_serial_without_collapse python3 -m coverage run --source=nbvalx -m pytest tests/notebooks
+          COVERAGE_FILE=.coverage_notebooks_serial_without_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" tests/notebooks
       - name: Run notebooks tests (serial, with collapse)
         run: |
-          COVERAGE_FILE=.coverage_notebooks_serial_with_collapse python3 -m coverage run --source=nbvalx -m pytest --tag-collapse tests/notebooks
+          COVERAGE_FILE=.coverage_notebooks_serial_with_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" --tag-collapse tests/notebooks
       - name: Run notebooks tests (parallel)
         run: |
-          COVERAGE_FILE=.coverage_notebooks_parallel python3 -m coverage run --source=nbvalx -m pytest --np 2 tests/notebooks
+          COVERAGE_FILE=.coverage_notebooks_parallel python3 -m coverage run --source=nbvalx -m pytest --np=2 --coverage-run-allow --copy-data-to-work-dir="**/coverage_mock_module.py" tests/notebooks
+      - name: Run notebooks tests (coverage source set nbvalx itself)
+        run: |
+          COVERAGE_FILE=.coverage_notebooks_coverage_nbvalx python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --coverage-source=nbvalx --copy-data-to-work-dir="**/coverage_mock_module.py" tests/notebooks
       - name: Combine coverage reports
         run: |
           python3 -m coverage combine .coverage*
           python3 -m coverage report --fail-under=100 --show-missing --skip-covered
+          rm .coverage*
+      - name: Run notebooks tests (coverage source set to a mock external module)
+        run: |
+          COVERAGE_FILE=.coverage_notebooks_coverage_external python3 -m pytest --coverage-source=coverage_mock_module --copy-data-to-work-dir="**/coverage_mock_module.py" tests/notebooks
+      - name: Combine coverage reports (coverage source set to a mock external module)
+        run: |
+          python3 -m coverage combine .coverage*
+          python3 -m coverage report --fail-under=100 --show-missing --skip-covered
+          rm .coverage*
       - name: Upload notebooks logs as an artifact in case of failure
         if: failure() || cancelled()
         uses: actions/upload-artifact@v3
