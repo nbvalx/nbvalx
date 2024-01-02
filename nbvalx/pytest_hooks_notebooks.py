@@ -13,6 +13,7 @@ import glob
 import os
 import pathlib
 import re
+import shutil
 import typing
 
 import _pytest.main
@@ -26,19 +27,23 @@ import pytest
 def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) -> None:
     """Add options to set the number of processes and tag actions."""
     # Number of processors
-    parser.addoption("--np", action="store", type=int, default=1, help="Number of MPI processes to use")
-    assert (
-        not ("OMPI_COMM_WORLD_SIZE" in os.environ  # OpenMPI
-             or "MPI_LOCALNRANKS" in os.environ)), (  # MPICH
-        "Please do not start pytest under mpirun. Use the --np pytest option.")
-    # Action to carry out on notebooks
+    parser.addoption("--np", type=int, default=1, help="Number of MPI processes to use")
+    # Coverage source
+    parser.addoption("--coverage-source", type=str, default="", help="The value to be passed to coverage --source")
     parser.addoption(
-        "--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
+        "--coverage-run-allow", action="store_true", help=(
+            "Allow to start pytest under coverage. This should never be done, except while determining the coverage "
+            "of nbvalx notebooks hooks themselves."))
+    # Action to carry out on notebooks
+    parser.addoption("--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
     # Tag collapse
     parser.addoption("--tag-collapse", action="store_true", help="Collapse notebook to active tag")
     # Work directory
+    parser.addoption("--work-dir", type=str, default="", help="Work directory in which to run the tests")
     parser.addoption(
-        "--work-dir", type=str, default="", help="Work directory in which to run the tests")
+        "--copy-data-to-work-dir", action="append", type=str, default=[], help=(
+            "Glob patterns of data files that need to be copied to the work directory. The option can be passed "
+            "multiple times in case multiple patterns are desired, and they will be joined with an or condition."))
 
 
 def sessionstart(session: pytest.Session) -> None:
@@ -52,6 +57,17 @@ def sessionstart(session: pytest.Session) -> None:
     # Verify parallel options
     np = session.config.option.np
     assert np > 0
+    assert (
+        not ("OMPI_COMM_WORLD_SIZE" in os.environ  # OpenMPI
+             or "MPI_LOCALNRANKS" in os.environ)), (  # MPICH
+        "Please do not start pytest under mpirun. Use the --np pytest option.")
+    # Verify if coverage is requested
+    coverage_source = session.config.option.coverage_source
+    if not session.config.option.coverage_run_allow:  # pragma: no cover
+        assert "COVERAGE_RUN" not in os.environ, (
+            "Please do not start pytest under coverage. Use the --coverage-source pytest option.")
+    else:
+        assert coverage_source in ("", "nbvalx"), "--coverage-run-allow is incompatible with --coverage-source"
     # Verify action options
     ipynb_action = session.config.option.ipynb_action
     assert ipynb_action in ("create-notebooks", "collect-notebooks")
@@ -62,6 +78,7 @@ def sessionstart(session: pytest.Session) -> None:
     if session.config.option.work_dir == "":
         session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
     work_dir = session.config.option.work_dir
+    copy_data_to_work_dir = session.config.option.copy_data_to_work_dir
     assert not work_dir.startswith(os.sep), "Please use a relative path while specifying work directory"
     if np > 1 or ipynb_action != "create-notebooks":
         assert work_dir != ".", (
@@ -87,16 +104,34 @@ def sessionstart(session: pytest.Session) -> None:
     session.config.args = list(dirs)
     # Clean up possibly existing notebooks in work directory from a previous run
     if work_dir != ".":
+        cleanup_patterns = [*copy_data_to_work_dir, "**/*.ipynb"]
         for dirpath in dirs:
             work_dirpath = os.path.join(dirpath, work_dir)
             if os.path.exists(work_dirpath):  # pragma: no cover
                 for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
                     if dir_entry.is_file():
                         filepath = str(dir_entry.path)
-                        if fnmatch.fnmatch(filepath, "**/*.ipynb"):
+                        if any(fnmatch.fnmatch(filepath, cleanup_pattern) for cleanup_pattern in cleanup_patterns):
                             os.remove(filepath)
                             if filepath in files:
                                 files.remove(filepath)
+    # Copy data to the work directory
+    if work_dir != "." and len(copy_data_to_work_dir) > 0:
+        for filepath in files:
+            for dir_entry in _pytest.pathlib.visit(os.path.dirname(filepath), lambda _: True):
+                if dir_entry.is_file():
+                    source_path = str(dir_entry.path)
+                    if (
+                        any(fnmatch.fnmatch(source_path, pattern) for pattern in copy_data_to_work_dir)
+                            and
+                        work_dir not in source_path
+                    ):
+                        destination_path = os.path.join(
+                            os.path.dirname(filepath), work_dir,
+                            os.path.relpath(source_path, os.path.dirname(filepath)))
+                        if not os.path.exists(destination_path):
+                            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                            shutil.copyfile(source_path, destination_path)
     # Process each notebook
     for filepath in files:
         # Read in notebook
@@ -230,9 +265,35 @@ def sessionstart(session: pytest.Session) -> None:
                         lines.insert(xfail_code_index, quotes + "Expect this cell to fail.\n")
                         lines.append(quotes)
                     cell.source = "\n".join(lines)
+        # If requested, add coverage testing when running notebooks through pytest
+        # Coverage is not added when only asked to create notebooks because:
+        # * the user who requested notebook creation may not want coverage testing to take place
+        # * the additional cell may interfere with linting
+        if coverage_source != "" and ipynb_action != "create-notebooks":
+            for (ipynb_path, nb_tag) in nb_tags.items():
+                # Add a cell on top to start coverage collection
+                coverage_start_code = f"""import coverage
+
+cov = coverage.Coverage(
+    data_file="{os.path.join(os.getcwd(), os.environ.get("COVERAGE_FILE", ".coverage"))}",
+    data_suffix={np > 1}, source=["{coverage_source}"]
+)
+cov.load()
+cov.start()
+"""
+                coverage_start_cell = nbformat.v4.new_code_cell(coverage_start_code)  # type: ignore[no-untyped-call]
+                coverage_start_cell.id = "coverage_start"
+                nb_tag.cells.insert(0, coverage_start_cell)
+                # Add a cell at the end to stop coverage collection
+                coverage_stop_code = """cov.stop()
+cov.save()
+"""
+                coverage_stop_cell = nbformat.v4.new_code_cell(coverage_stop_code)  # type: ignore[no-untyped-call]
+                coverage_stop_cell.id = "coverage_stop"
+                nb_tag.cells.append(coverage_stop_cell)
         # Add live stdout redirection to file when running notebooks through pytest
-        # Such redirection is not added when only asked to create notebooks, as:
-        # * the user who requested notebooks may not want redirection to take place
+        # Such redirection is not added when only asked to create notebooks because:
+        # * the user who requested notebook creation may not want redirection to take place
         # * the additional cell may interfere with linting
         if ipynb_action != "create-notebooks":
             for (ipynb_path, nb_tag) in nb_tags.items():
