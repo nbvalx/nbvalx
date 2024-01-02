@@ -240,6 +240,7 @@ def sessionstart(session: pytest.Session) -> None:
                 _add_cell_magic(nb_tag, "%%live_log")
                 # Add a cell on top to define the live_log magic
                 live_log_magic_code = f'''import contextlib
+import typing
 
 import IPython
 
@@ -255,7 +256,7 @@ else:
         live_log_suffix += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
 
 
-def live_log(line: str, cell: str = None) -> None:
+def live_log(line: str, cell: typing.Optional[str] = None) -> None:
     """Redirect notebook to log file."""
     with contextlib.redirect_stdout(open(live_log.__file__, "a", buffering=1)):
         print("---------------------------")
