@@ -10,9 +10,11 @@ import contextlib
 import copy
 import fnmatch
 import glob
+import itertools
 import os
 import pathlib
 import re
+import textwrap
 import typing
 
 import _pytest.main
@@ -21,6 +23,8 @@ import nbformat
 import nbval.plugin
 import py
 import pytest
+
+import nbvalx.jupyter_magics
 
 
 def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) -> None:
@@ -36,7 +40,7 @@ def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) 
     # Action to carry out on notebooks
     parser.addoption("--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
     # Tag collapse
-    parser.addoption("--tag-collapse", action="store_true", help="Collapse notebook to active tag")
+    parser.addoption("--tag-collapse", action="store_true", help="Collapse notebook to current tags")
     # Work directory
     parser.addoption("--work-dir", type=str, default="", help="Work directory in which to run the tests")
     parser.addoption(
@@ -138,55 +142,63 @@ def sessionstart(session: pytest.Session) -> None:
             nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
         # Determine if the run_if extension is used
         run_if_loaded = False
-        allowed_tags = []
+        allowed_tags: typing.Dict[str, typing.Union[typing.List[bool], typing.List[int], typing.List[str]]] = {}
         for cell in nb.cells:
             if cell.cell_type == "code":
                 if cell.source.startswith("%load_ext nbvalx"):
                     run_if_loaded = True
-                    assert len(cell.source.splitlines()) == 1, (
-                        "Use a standalone cell for %load_ext nbvalx")
-                elif cell.source.startswith("%register_run_if_allowed_tags"):
+                    assert len(cell.source.splitlines()) == 1, "Use a standalone cell for %load_ext nbvalx"
+                elif cell.source.startswith("%%register_run_if_allowed_tags"):
                     assert run_if_loaded
                     lines = cell.source.splitlines()
-                    if len(lines) > 1:
-                        assert all([line.endswith("\\") for line in lines[:-1]])
-                        line = " ".join([line.strip().strip("\\") for line in lines])
-                    else:
-                        line = lines[0]
-                    line = line.replace("%register_run_if_allowed_tags ", "")
-                    allowed_tags = [tag.strip() for tag in line.split(",")]
+                    assert lines[0] == "%%register_run_if_allowed_tags"
+                    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
+                        "", "\n".join(lines[1:]), allowed_tags)
+        # Determine all possible tag combinations
+        allowed_tags_names = list(allowed_tags.keys())
+        if len(allowed_tags_names) > 0:
+            allowed_tags_values_product = list(itertools.product(*allowed_tags.values()))
+            allowed_tags_dict_product = [
+                {name: value for (name, value) in zip(allowed_tags_names, values)}
+                for values in allowed_tags_values_product]
+            allowed_tags_keyword = [
+                ",".join(f"{name}={value}" for (name, value) in zip(allowed_tags_names, values))
+                for values in allowed_tags_values_product]
+        else:
+            allowed_tags_values_product = []
+            allowed_tags_dict_product = []
+            allowed_tags_keyword = []
+        assert len(allowed_tags_values_product) == len(allowed_tags_keyword)
         # Create temporary copies for each tag to be processed
         nb_tags = dict()
-        if run_if_loaded and len(allowed_tags) > 0:
-            # Restrict tags to match keyword
-            if keyword != "":  # pragma: no cover
-                if keyword in allowed_tags:
-                    processed_tags = [keyword]
-                else:
-                    processed_tags = []
-            else:
-                processed_tags = allowed_tags
+        if run_if_loaded and len(allowed_tags_keyword) > 0:
             # Process restricted tags
-            for tag in processed_tags:
+            for (tag_values, tag_dict, tag_keyword) in zip(
+                allowed_tags_values_product, allowed_tags_dict_product, allowed_tags_keyword
+            ):
+                # Restrict tags to match keyword
+                if keyword != "":  # pragma: no cover
+                    if keyword not in allowed_tags_keyword:
+                        continue
                 # Determine what will be the new notebook path
                 ipynb_path = os.path.join(
                     os.path.dirname(filepath), work_dir,
-                    os.path.basename(filepath).replace(".ipynb", f"[{tag}].ipynb"))
+                    os.path.basename(filepath).replace(".ipynb", f"[{tag_keyword}].ipynb"))
                 # Replace tag and, if collapsing notebooks, strip cells with other tags
                 cells_tag = list()
                 for cell in nb.cells:
                     cell_tag = copy.deepcopy(cell)
                     if cell.cell_type == "code":
                         if (cell.source.startswith("%load_ext nbvalx")
-                                or cell.source.startswith("%register_run_if_allowed_tags")):
+                                or cell.source.startswith("%%register_run_if_allowed_tags")):
                             if not tag_collapse:
                                 cells_tag.append(cell_tag)
-                        elif cell.source.startswith("%register_run_if_current_tag"):
-                            lines = cell.source.splitlines()
-                            if len(lines) > 1:
-                                assert all([line.endswith("\\") for line in lines[:-1]])
+                        elif cell.source.startswith("%%register_run_if_current_tags"):
                             if not tag_collapse:
-                                cell_tag.source = f"%register_run_if_current_tag {tag}"
+                                lines = ["%%register_run_if_current_tags"]
+                                for (tag_name, tag_value) in zip(allowed_tags_names, tag_values):
+                                    lines.append(f"{tag_name} = {tag_value}")
+                                cell_tag.source = "\n".join(lines)
                                 cells_tag.append(cell_tag)
                         elif "%%run_if" in cell.source:
                             if tag_collapse:
@@ -201,14 +213,18 @@ def sessionstart(session: pytest.Session) -> None:
                                     line = line.strip("\\") + lines[magic_line_index_end].strip()
                                     magic_line_index_end += 1
                                 assert magic_line_index_end < len(lines)
-                                line = line.replace("%%run_if ", "")
-                                run_if_tags = [tag.strip() for tag in line.split(",")]
-                                if tag in run_if_tags:
-                                    for magic_line_index in range(
-                                            magic_line_index_end - 1, magic_line_index_begin - 1, - 1):
-                                        lines.remove(lines[magic_line_index])
-                                    cell_tag.source = "\n".join(lines)
+                                magic = line.replace("%%run_if ", "")
+                                for magic_line_index in range(
+                                        magic_line_index_end - 1, magic_line_index_begin - 1, - 1):
+                                    lines.remove(lines[magic_line_index])
+                                code = "\n".join(lines)
+
+                                def append(code: str) -> None:
+                                    """Append the cell to the notebook."""
+                                    cell_tag.source = code
                                     cells_tag.append(cell_tag)
+
+                                nbvalx.jupyter_magics.IPythonExtension.run_if(magic, code, tag_dict, append)
                             else:
                                 cells_tag.append(cell_tag)
                         else:
@@ -238,7 +254,15 @@ def sessionstart(session: pytest.Session) -> None:
                             "Use a standalone cell for __notebook_name__")
                         notebook_name_tag = os.path.relpath(
                             ipynb_path, os.path.dirname(filepath))
-                        cell.source = f'__notebook_name__ = "{notebook_name_tag}"'
+                        if len(notebook_name_tag) < 60:
+                            cell.source = f'__notebook_name__ = "{notebook_name_tag}"'
+                        else:
+                            wrapped_notebook_name_tag = textwrap.wrap(notebook_name_tag, 60)
+                            cell.source = "\n".join([
+                                "__notebook_name__ = (",
+                                *[f'    "{wrapped_name_part}"' for wrapped_name_part in wrapped_notebook_name_tag],
+                                ")"
+                            ])
         # Comment out xfail cells when only asked to create notebooks, so that the user
         # who requested them can run all cells
         if ipynb_action == "create-notebooks" and work_dir != ".":

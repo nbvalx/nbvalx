@@ -13,25 +13,43 @@ Add a cell with
 ```
 at the beginning of a notebook to load **nbvalx** `IPython` extension. The extension is implemented in [`nbvalx/jupyter_magics.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/jupyter_magics.py).
 
-The extension allows to register a list of allowed tags
+The extension allows to register a list of allowed tags, and their values
 ```
-%register_run_if_allowed_tags tag1, tag2
+%%register_run_if_allowed_tags
+bool_tag: True, False
+int_tag: 2, 10
+string_tag: "value1", "value2"
 ```
-and set the current value of the tag with
+and set the current value of each tag with
 ```
-%register_run_if_current_tag tag1
+%%register_run_if_current_tags
+bool_tag = False
+int_tag = 10
+string_tag = "value1"
 ```
 
-The tag can then be used to conditionally run cells. As an example, if the subsequent two cells were
+The tags can then be used to conditionally run cells. As an example, if the subsequent two cells were
 ```
-%%run_if tag1
-current_tag = "tag1"
+%%run_if bool_tag and int_tag > 5
+print("Cell with float and integer comparison")
 ```
 ```
-%%run_if tag2
-current_tag = "tag2"
+%%run_if string_tag == "value1"
+print("Cell with string comparison")
 ```
-the first cell would never be executed, and the second cell would assign the value `"tag2"` to `current_tag`.
+the string `"Cell with float and integer comparison"` would never get printed, while the `"Cell with string comparison"` would indeed be printed.
+
+Without **nbvalx**, the four cells above could have equivalently been written as
+```
+bool_tag = False
+int_tag = 10
+string_tag = "value1"
+if bool_tag and int_tag > 5:
+    print("Cell with float and integer comparison")
+if string_tag == "value1":
+    print("Cell with string comparison")
+```
+The plain formulation is certainly less verbose and more compact than **nbvalx** equivalent one with four cells. However, it is less "testing-friendly", because the values of `bool_tag`, `int_tag` and `string_tag` are hardcoded in the notebook and cannot be easily varied. With a `pytest` terminology, **nbvalx** tags correspond to defining a parametrization of the notebook.
 
 See [`tests/notebooks/data/tags`](https://github.com/multiphenics/nbvalx/blob/main/tests/notebooks/data/tags) for a few simple notebooks using tags.
 

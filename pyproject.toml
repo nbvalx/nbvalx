@@ -36,7 +36,8 @@ dependencies = [
     # list dependencies that are just enough to import nbvalx main module (i.e., nbvalx/jupyter_magics.py).
     # Requirements for other modules (i.e., pytest hooks) are listed as optional dependencies. This allows to have
     # a minimal installation for users who are just willing to use nbvalx in jupyter notebooks.
-    "ipython"
+    "ipython",
+    "simpleeval"
 ]
 
 [project.urls]
@@ -95,6 +96,7 @@ module = [
     "ipyparallel",
     "nbformat",
     "nbval.*",
+    "simpleeval",
     "py"
 ]
 ignore_missing_imports = true
