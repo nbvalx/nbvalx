@@ -330,8 +330,8 @@ def live_log(line: str, cell: typing.Optional[str] = None) -> None:
             result.raise_error()
         except Exception as e:
             # The exception has already been printed to the terminal, there is
-            # no need of printing it again
-            raise nbvalx.jupyter_magics.SuppressTracebackMockError(e)
+            # no need to print it again
+            raise nbvalx.jupyter_magics.IPythonExtension.SuppressTracebackMockError(e)
         finally:
             print()
 
@@ -342,7 +342,8 @@ open(live_log.__file__, "w").close()
 
 IPython.get_ipython().register_magic_function(live_log, "cell")
 IPython.get_ipython().set_custom_exc(
-    (nbvalx.jupyter_magics.SuppressTracebackMockError, ), nbvalx.jupyter_magics.suppress_traceback_handler)'''
+    (nbvalx.jupyter_magics.IPythonExtension.SuppressTracebackMockError, ),
+    nbvalx.jupyter_magics.IPythonExtension.suppress_traceback_handler)'''
                 live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)  # type: ignore[no-untyped-call]
                 live_log_magic_cell.id = "live_log_magic"
                 nb_tag.cells.insert(0, live_log_magic_cell)
