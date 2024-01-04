@@ -13,7 +13,6 @@ import glob
 import os
 import pathlib
 import re
-import shutil
 import typing
 
 import _pytest.main
@@ -41,7 +40,7 @@ def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) 
     # Work directory
     parser.addoption("--work-dir", type=str, default="", help="Work directory in which to run the tests")
     parser.addoption(
-        "--copy-data-to-work-dir", action="append", type=str, default=[], help=(
+        "--link-data-in-work-dir", action="append", type=str, default=[], help=(
             "Glob patterns of data files that need to be copied to the work directory. The option can be passed "
             "multiple times in case multiple patterns are desired, and they will be joined with an or condition."))
 
@@ -78,7 +77,7 @@ def sessionstart(session: pytest.Session) -> None:
     if session.config.option.work_dir == "":
         session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
     work_dir = session.config.option.work_dir
-    copy_data_to_work_dir = session.config.option.copy_data_to_work_dir
+    link_data_in_work_dir = session.config.option.link_data_in_work_dir
     assert not work_dir.startswith(os.sep), "Please use a relative path while specifying work directory"
     if np > 1 or ipynb_action != "create-notebooks":
         assert work_dir != ".", (
@@ -104,7 +103,7 @@ def sessionstart(session: pytest.Session) -> None:
     session.config.args = list(dirs)
     # Clean up possibly existing notebooks in work directory from a previous run
     if work_dir != ".":
-        cleanup_patterns = [*copy_data_to_work_dir, "**/*.ipynb"]
+        cleanup_patterns = [*link_data_in_work_dir, "**/*.ipynb"]
         for dirpath in dirs:
             work_dirpath = os.path.join(dirpath, work_dir)
             if os.path.exists(work_dirpath):  # pragma: no cover
@@ -115,14 +114,14 @@ def sessionstart(session: pytest.Session) -> None:
                             os.remove(filepath)
                             if filepath in files:
                                 files.remove(filepath)
-    # Copy data to the work directory
-    if work_dir != "." and len(copy_data_to_work_dir) > 0:
+    # Link data in the work directory
+    if work_dir != "." and len(link_data_in_work_dir) > 0:
         for filepath in files:
             for dir_entry in _pytest.pathlib.visit(os.path.dirname(filepath), lambda _: True):
                 if dir_entry.is_file():
                     source_path = str(dir_entry.path)
                     if (
-                        any(fnmatch.fnmatch(source_path, pattern) for pattern in copy_data_to_work_dir)
+                        any(fnmatch.fnmatch(source_path, pattern) for pattern in link_data_in_work_dir)
                             and
                         work_dir not in source_path
                     ):
@@ -131,7 +130,7 @@ def sessionstart(session: pytest.Session) -> None:
                             os.path.relpath(source_path, os.path.dirname(filepath)))
                         if not os.path.exists(destination_path):
                             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-                            shutil.copyfile(source_path, destination_path)
+                            os.symlink(source_path, destination_path)
     # Process each notebook
     for filepath in files:
         # Read in notebook
