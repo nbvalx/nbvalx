@@ -14,6 +14,7 @@ import itertools
 import os
 import pathlib
 import re
+import shutil
 import textwrap
 import typing
 
@@ -105,36 +106,37 @@ def sessionstart(session: pytest.Session) -> None:
             files.append(str(dir_or_file))
             dirs.add(os.path.dirname(dir_or_file))
     session.config.args = list(dirs)
-    # Clean up possibly existing notebooks in work directory from a previous run
+    # Clean up possibly existing links and notebooks in work directory from a previous run
     if work_dir != ".":
         cleanup_patterns = [*link_data_in_work_dir, "**/*.ipynb"]
         for dirpath in dirs:
             work_dirpath = os.path.join(dirpath, work_dir)
             if os.path.exists(work_dirpath):  # pragma: no cover
                 for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
-                    if dir_entry.is_file():
-                        filepath = str(dir_entry.path)
-                        if any(fnmatch.fnmatch(filepath, cleanup_pattern) for cleanup_pattern in cleanup_patterns):
+                    filepath = str(dir_entry.path)
+                    if any(fnmatch.fnmatch(filepath, cleanup_pattern) for cleanup_pattern in cleanup_patterns):
+                        if dir_entry.is_file():
                             os.remove(filepath)
-                            if filepath in files:
-                                files.remove(filepath)
+                        elif dir_entry.is_dir():
+                            shutil.rmtree(filepath, ignore_errors=True)
+                        if filepath in files:
+                            files.remove(filepath)
     # Link data in the work directory
     if work_dir != "." and len(link_data_in_work_dir) > 0:
         for filepath in files:
             for dir_entry in _pytest.pathlib.visit(os.path.dirname(filepath), lambda _: True):
-                if dir_entry.is_file():
-                    source_path = str(dir_entry.path)
-                    if (
-                        any(fnmatch.fnmatch(source_path, pattern) for pattern in link_data_in_work_dir)
-                            and
-                        work_dir not in source_path
-                    ):
-                        destination_path = os.path.join(
-                            os.path.dirname(filepath), work_dir,
-                            os.path.relpath(source_path, os.path.dirname(filepath)))
-                        if not os.path.exists(destination_path):
-                            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-                            os.symlink(source_path, destination_path)
+                source_path = str(dir_entry.path)
+                if (
+                    any(fnmatch.fnmatch(source_path, pattern) for pattern in link_data_in_work_dir)
+                        and
+                    work_dir not in source_path
+                ):
+                    destination_path = os.path.join(
+                        os.path.dirname(filepath), work_dir,
+                        os.path.relpath(source_path, os.path.dirname(filepath)))
+                    if not os.path.exists(destination_path):
+                        os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                        os.symlink(source_path, destination_path)
     # Process each notebook
     for filepath in files:
         # Read in notebook
