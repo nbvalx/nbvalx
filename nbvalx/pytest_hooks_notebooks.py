@@ -70,8 +70,6 @@ def sessionstart(session: pytest.Session) -> None:
     if not session.config.option.coverage_run_allow:  # pragma: no cover
         assert "COVERAGE_RUN" not in os.environ, (
             "Please do not start pytest under coverage. Use the --coverage-source pytest option.")
-    else:
-        assert coverage_source in ("", "nbvalx"), "--coverage-run-allow is incompatible with --coverage-source"
     # Verify action options
     ipynb_action = session.config.option.ipynb_action
     assert ipynb_action in ("create-notebooks", "collect-notebooks")
