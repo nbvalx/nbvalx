@@ -154,6 +154,26 @@ def sessionstart(session: pytest.Session) -> None:
                     assert lines[0] == "%%register_run_if_allowed_tags"
                     nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
                         "", "\n".join(lines[1:]), allowed_tags)
+                elif cell.source.startswith("__notebook_basename__"):
+                    lines = cell.source.splitlines()
+                    assert len(lines) == 2, (
+                        f"Use a standalone cell for __notebook_basename__ and __notebook_dirname__ in {filepath}")
+                    assert lines[0].startswith("__notebook_basename__"), (
+                        f"__notebook_basename__ must be on the first line of the cell in {filepath}")
+                    assert lines[1].startswith("__notebook_dirname__"), (
+                        f"__notebook_dirname__ must be on the second line of the cell in {filepath}")
+
+                    _, hardcoded_notebook_name = lines[0].split("=")
+                    hardcoded_notebook_name = hardcoded_notebook_name.strip()
+                    assert hardcoded_notebook_name[0] in ('"', "'")
+                    assert hardcoded_notebook_name[-1] in ('"', "'")
+                    hardcoded_notebook_name = hardcoded_notebook_name[1:-1]
+                    assert hardcoded_notebook_name == os.path.basename(filepath), (
+                        f"Wrong attribute __notebook_basename__ for {filepath}")
+
+                    _, hardcoded_notebook_path = lines[1].split("=")
+                    hardcoded_notebook_path = hardcoded_notebook_path.strip()
+                    assert hardcoded_notebook_path in ('""', "''")
         # Determine all possible tag combinations
         allowed_tags_names = list(allowed_tags.keys())
         if len(allowed_tags_names) > 0:
@@ -249,20 +269,23 @@ def sessionstart(session: pytest.Session) -> None:
         for (ipynb_path, nb_tag) in nb_tags.items():
             for cell in nb_tag.cells:
                 if cell.cell_type == "code":
-                    if cell.source.startswith("__notebook_name__"):
-                        assert len(cell.source.splitlines()) == 1, (
-                            "Use a standalone cell for __notebook_name__")
-                        notebook_name_tag = os.path.relpath(
-                            ipynb_path, os.path.dirname(filepath))
-                        if len(notebook_name_tag) < 60:
-                            cell.source = f'__notebook_name__ = "{notebook_name_tag}"'
-                        else:
-                            wrapped_notebook_name_tag = textwrap.wrap(notebook_name_tag, 60)
-                            cell.source = "\n".join([
-                                "__notebook_name__ = (",
-                                *[f'    "{wrapped_name_part}"' for wrapped_name_part in wrapped_notebook_name_tag],
-                                ")"
-                            ])
+                    if cell.source.startswith("__notebook_basename__"):
+                        def wrap_if_long_line(key: str, value: str) -> str:
+                            """Wrap text if line is too long."""
+                            if len(value) < 60:
+                                return f'__notebook_{key}__ = "{value}"'
+                            else:
+                                wrapped_value = textwrap.wrap(value, 60)
+                                return "\n".join([
+                                    f"__notebook_{key}__ = (",
+                                    *[f'    "{wrapped_value_part}"' for wrapped_value_part in wrapped_value],
+                                    ")"
+                                ])
+
+                        cell.source = "\n".join([
+                            wrap_if_long_line("basename", os.path.basename(ipynb_path)),
+                            wrap_if_long_line("dirname", os.path.dirname(ipynb_path))
+                        ])
         # Comment out xfail cells when only asked to create notebooks, so that the user
         # who requested them can run all cells
         if ipynb_action == "create-notebooks" and work_dir != ".":
