@@ -208,6 +208,12 @@ def sessionstart(session: pytest.Session) -> None:
                 cells_tag = list()
                 for cell in nb.cells:
                     cell_tag = copy.deepcopy(cell)
+
+                    def store_and_append(source: str) -> None:
+                        """Store source in the cell and append it to the notebook."""
+                        cell_tag.source = source
+                        cells_tag.append(cell_tag)
+
                     if cell.cell_type == "code":
                         if (cell.source.startswith("%load_ext nbvalx")
                                 or cell.source.startswith("%%register_run_if_allowed_tags")):
@@ -218,8 +224,7 @@ def sessionstart(session: pytest.Session) -> None:
                                 lines = ["%%register_run_if_current_tags"]
                                 for (tag_name, tag_value) in zip(allowed_tags_names, tag_values):
                                     lines.append(f"{tag_name} = {tag_value!r}")
-                                cell_tag.source = "\n".join(lines)
-                                cells_tag.append(cell_tag)
+                                store_and_append("\n".join(lines))
                         elif "%%run_if" in cell.source:
                             if tag_collapse:
                                 lines = cell.source.splitlines()
@@ -233,23 +238,41 @@ def sessionstart(session: pytest.Session) -> None:
                                     line = line.strip("\\") + lines[magic_line_index_end].strip()
                                     magic_line_index_end += 1
                                 assert magic_line_index_end < len(lines)
-                                magic = line.replace("%%run_if ", "")
+                                magic = line.replace("%%run_if", "")
                                 for magic_line_index in range(
                                         magic_line_index_end - 1, magic_line_index_begin - 1, - 1):
                                     lines.remove(lines[magic_line_index])
                                 code = "\n".join(lines)
-
-                                def append(code: str) -> None:
-                                    """Append the cell to the notebook."""
-                                    cell_tag.source = code
-                                    cells_tag.append(cell_tag)
-
-                                nbvalx.jupyter_magics.IPythonExtension.run_if(magic, code, tag_dict, append)
+                                nbvalx.jupyter_magics.IPythonExtension.run_if(magic, code, tag_dict, store_and_append)
                             else:
                                 cells_tag.append(cell_tag)
                         else:
                             cells_tag.append(cell_tag)
-                    else:
+                    elif cell.cell_type == "markdown":
+                        if "<!-- keep_if" in cell.source:
+                            if tag_collapse:
+                                lines = cell.source.splitlines()
+                                comment_line_index_begin = 0
+                                while not lines[comment_line_index_begin].startswith("<!--"):
+                                    comment_line_index_begin += 1
+                                assert comment_line_index_begin < len(lines)
+                                line = lines[comment_line_index_begin]
+                                comment_line_index_end = comment_line_index_begin + 1
+                                while not line.endswith("-->"):
+                                    line = line + lines[comment_line_index_end].strip()
+                                    comment_line_index_end += 1
+                                assert comment_line_index_end <= len(lines)
+                                comment = line.replace("<!-- keep_if", "").replace("-->", "")
+                                for comment_line_index in range(
+                                        comment_line_index_end - 1, comment_line_index_begin - 1, - 1):
+                                    lines.remove(lines[comment_line_index])
+                                text = "\n".join(lines)
+                                nbvalx.jupyter_magics.IPythonExtension.run_if(comment, text, tag_dict, store_and_append)
+                            else:
+                                cells_tag.append(cell_tag)
+                        else:
+                            cells_tag.append(cell_tag)
+                    else:  # pragma: no cover
                         cells_tag.append(cell_tag)
                 # Attach cells to a copy of the notebook
                 nb_tag = copy.deepcopy(nb)

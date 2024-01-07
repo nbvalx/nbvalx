@@ -51,6 +51,13 @@ if string_tag == "value1":
 ```
 The plain formulation is certainly less verbose and more compact than **nbvalx** equivalent one with four cells. However, it is less "testing-friendly", because the values of `bool_tag`, `int_tag` and `string_tag` are hardcoded in the notebook and cannot be easily varied. With a `pytest` terminology, **nbvalx** tags correspond to defining a parametrization of the notebook.
 
+A similar statement can be used as an HTML comment in markdown cells
+```
+<!-- keep_if string_tag == "value1" -->
+This is a markdown cell which explains a code cell that will be run only if string_tag == "value1".
+```
+Markdown cells will be stripped only when running through `pytest` with the `--tag-collapse` option, see below.
+
 See [`tests/notebooks/data/tags`](https://github.com/nbvalx/nbvalx/blob/main/tests/notebooks/data/tags) for a few simple notebooks using tags.
 
 ## Custom pytest hooks for jupyter notebooks
@@ -70,7 +77,7 @@ The hooks change the default behavior of `nbval` in the following ways:
 1. the options `--nbval` and `--nbval-lax`, which `nbval` requires to pass explicitly, are here enabled implicitly;
 2. support for `MPI` run by providing the `--np` option to `pytest`. When running `pytest --np 2`, **nbvalx** will start a `ipyparallel.Cluster` and run notebooks tests in parallel on 2 cores. In the default case one core is employed, and an `ipyparallel.Cluster` is not started;
 3. support for tags, as introduced in the previous section, as governed by two flags:
-    * `--tag-collapse`: if enabled (default), strip all cells for which the `%%run_if` condition does not evaluate to `True`. This may be used to prepare notebook files to be read by the end user, as stripping unused cells may improve the readability of the notebook. If not enabled, all cells will be kept.
+    * `--tag-collapse`: if enabled (default), strip all cells for which the `%%run_if ...` or `<!-- keep_if ... -->` conditions do not evaluate to `True`. This may be used to prepare notebook files to be read by the end user, as stripping unused cells may improve the readability of the notebook. If not enabled, all cells will be kept.
     * `--ipynb-action`: either `collect-notebooks` (default) or `create-notebook`. Both actions create several copies of the original notebook that differ by the currently enabled tag. For instance, if the original notebook in the section above is called `notebook.ipynb` and has two allowed tags, the action will generate a file `notebook[tag1].ipynb` where `tag1` is assigned as the current value of the tag, and a file `notebook[tag2].ipynb` where `tag2` is assigned as the current value of the tag. If `tag-collapse` is enabled, cells associated to all remaining tags are stripped. The `create-notebook` action only generates the tagged notebooks; instead, the `collect-notebooks` additionally also runs them through `pytest`;
 4. support for collecting cell outputs to log files, which are saved in a work directory provided by the user with the argument `--work-dir`. This is helpful to debug failures while testing notebooks. If no work directory is specified, the default value is `f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"`. In case the notebook depends on additonal data files (e.g., local python modules), the flag `--link-data-in-work-dir` can be passed with glob patterns of data files that need to be symbolically linked in the work directory. The option can be passed multiple times in case multiple patterns are desired, and they will be joined with an or condition;
 5. the notebook is treated as if it were a demo or tutorial, rather than a collection of unit tests in different cells. For this reason, if a cell fails, the next cells will be skipped;
