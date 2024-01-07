@@ -55,7 +55,7 @@ class IPythonExtension(object):
                 assert value.endswith("'")
                 return value.strip("'")
             else:
-                return value
+                raise RuntimeError(f"String {value} must be quoted either as \"{value}\" or '{value}'")
 
     @classmethod
     def _ipython_runner(cls, code: str) -> None:

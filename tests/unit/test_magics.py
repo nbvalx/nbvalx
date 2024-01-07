@@ -95,7 +95,7 @@ def test_register_run_if_allowed_tags_single(
 ) -> None:
     """Check registration of a single set of allowed tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
     assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {"tag": tag_values}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
@@ -109,8 +109,21 @@ def test_register_run_if_allowed_tags_multiple(
     """Check registration of multiple sets allowed tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
-        "", f"tag1: {', '.join(map(str, tag1_values))}\ntag2: {', '.join(map(str, tag2_values))}")
+        "", f"tag1: {', '.join(map(repr, tag1_values))}\ntag2: {', '.join(map(repr, tag2_values))}")
     assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {"tag1": tag1_values, "tag2": tag2_values}
+    nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("tag_values", [["a", "b"]])
+def test_register_run_if_allowed_tags_without_quotes(
+    mock_ipython: MockIPythonShell, tag_values: typing.List[str]
+) -> None:
+    """Check registration of allowed tags of type string not enclosed within quotes."""
+    nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
+    with pytest.raises(RuntimeError):
+        nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
+            "", f"tag: {', '.join(map(str, tag_values))}")
+    assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
@@ -120,8 +133,8 @@ def test_register_run_if_current_tags_single(
 ) -> None:
     """Check registration of a single set of current tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {"tag": tag_values[0]}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
@@ -135,9 +148,9 @@ def test_register_run_if_current_tags_multiple(
     """Check registration of multiple sets of current tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
-        "", f"tag1: {', '.join(map(str, tag1_values))}\ntag2: {', '.join(map(str, tag2_values))}")
+        "", f"tag1: {', '.join(map(repr, tag1_values))}\ntag2: {', '.join(map(repr, tag2_values))}")
     nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags(
-        "", f"tag1 = {tag1_values[0]}\ntag2 = {tag2_values[0]}")
+        "", f"tag1 = {tag1_values[0]!r}\ntag2 = {tag2_values[0]!r}")
     assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {"tag1": tag1_values[0], "tag2": tag2_values[0]}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
@@ -149,7 +162,7 @@ def test_register_run_if_current_tags_without_allowed_tags(
     """Check registration of current tag raises when allowed tags have not been set."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     with pytest.raises(AssertionError):
-        nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+        nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
@@ -167,8 +180,8 @@ def test_run_if_single_condition(
 ) -> None:
     """Check running a cell with a condition formed by a single statement."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     mock_get_ipython(mock_ipython)
     nbvalx.jupyter_magics.IPythonExtension.run_if(tag_condition, "a = 1")
     assert mock_ipython.cell == "a = 1"
@@ -188,8 +201,8 @@ def test_run_if_single_condition_with_line_breaks(
 ) -> None:
     """Check running a cell with a condition formed by a single statement and with line breaks."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     mock_get_ipython(mock_ipython)
     nbvalx.jupyter_magics.IPythonExtension.run_if(" \\", f"  {tag_condition}\na = 1")
     assert mock_ipython.cell == "a = 1"
@@ -209,8 +222,8 @@ def test_run_if_multiple_conditions(
 ) -> None:
     """Check running a cell with a condition formed by multiple statements."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     mock_get_ipython(mock_ipython)
     nbvalx.jupyter_magics.IPythonExtension.run_if(tag_condition, "a = 1")
     assert mock_ipython.cell == "a = 1"
@@ -230,8 +243,8 @@ def test_run_if_multiple_conditions_with_line_breaks(
 ) -> None:
     """Check running a cell with a condition formed by multiple statements and line breaks."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     mock_get_ipython(mock_ipython)
     nbvalx.jupyter_magics.IPythonExtension.run_if(f"{tag_condition1}\\", f"  {tag_condition2}\na = 1")
     assert mock_ipython.cell == "a = 1"
@@ -251,8 +264,8 @@ def test_run_if_single_condition_false(
 ) -> None:
     """Check running a cell with a condition which evaluates to False."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     mock_get_ipython(mock_ipython)
     nbvalx.jupyter_magics.IPythonExtension.run_if(tag_condition, "a = 1")
     assert mock_ipython.cell == ""
@@ -265,8 +278,8 @@ def test_unload_extension(
 ) -> None:
     """Check deletion of extension attributes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(str, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
+    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     assert nbvalx.jupyter_magics.IPythonExtension.loaded is False
     assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {}

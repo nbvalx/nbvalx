@@ -197,7 +197,7 @@ def sessionstart(session: pytest.Session) -> None:
                             if not tag_collapse:
                                 lines = ["%%register_run_if_current_tags"]
                                 for (tag_name, tag_value) in zip(allowed_tags_names, tag_values):
-                                    lines.append(f"{tag_name} = {tag_value}")
+                                    lines.append(f"{tag_name} = {tag_value!r}")
                                 cell_tag.source = "\n".join(lines)
                                 cells_tag.append(cell_tag)
                         elif "%%run_if" in cell.source:
