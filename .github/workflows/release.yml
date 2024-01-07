@@ -79,12 +79,12 @@ jobs:
           sed -i "s|version = \".*\"|version = \"${VERSION}\"|g" pyproject.toml
           CI_AGAINST_VERSION=$(cat << EOF
             test_${VERSION_DASHES}_installing_from_github:
-              uses: multiphenics/nbvalx/.github/workflows/ci.yml@v${VERSION}
+              uses: nbvalx/nbvalx/.github/workflows/ci.yml@v${VERSION}
               with:
                 ref: v${VERSION}
 
             test_${VERSION_DASHES}_installing_from_pypi:
-              uses: multiphenics/nbvalx/.github/workflows/ci.yml@v${VERSION}
+              uses: nbvalx/nbvalx/.github/workflows/ci.yml@v${VERSION}
               with:
                 ref: v${VERSION}
                 index: PyPI
@@ -112,25 +112,25 @@ jobs:
 
   test_branch_pre_release_installing_from_github:
     needs: [prepare_branches]
-    uses: multiphenics/nbvalx/.github/workflows/ci.yml@main
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@main
     with:
       ref: pre${{ github.event.inputs.version }}
 
   test_branch_for_release_installing_from_github:
     needs: [prepare_branches]
-    uses: multiphenics/nbvalx/.github/workflows/ci.yml@main
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@main
     with:
       ref: v${{ github.event.inputs.version }}
 
   test_branch_post_release_installing_from_github:
     needs: [prepare_branches]
-    uses: multiphenics/nbvalx/.github/workflows/ci.yml@main
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@main
     with:
       ref: post${{ github.event.inputs.version }}
 
   publish_release_to_testpypi:
     needs: [test_branch_pre_release_installing_from_github, test_branch_for_release_installing_from_github, test_branch_post_release_installing_from_github]
-    uses: multiphenics/nbvalx/.github/workflows/pypi.yml@main
+    uses: nbvalx/nbvalx/.github/workflows/pypi.yml@main
     with:
       ref: v${{ github.event.inputs.version }}
       index: TestPyPI
@@ -140,7 +140,7 @@ jobs:
   publish_release_to_pypi:
     needs: [publish_release_to_testpypi]
     if: github.event.inputs.dry_run == 'no'
-    uses: multiphenics/nbvalx/.github/workflows/pypi.yml@main
+    uses: nbvalx/nbvalx/.github/workflows/pypi.yml@main
     with:
       ref: v${{ github.event.inputs.version }}
       index: PyPI

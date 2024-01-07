@@ -4,14 +4,14 @@
 
 **nbvalx** is currently developed and maintained at [Università Cattolica del Sacro Cuore](https://www.unicatt.it/) by [Dr. Francesco Ballarin](https://www.francescoballarin.it).
 
-**nbvalx** can be `pip install`ed from [its GitHub repository](https://github.com/multiphenics/nbvalx/) or from [PyPI](https://pypi.org/project/nbvalx/)
+**nbvalx** can be `pip install`ed from [its GitHub repository](https://github.com/nbvalx/nbvalx/) or from [PyPI](https://pypi.org/project/nbvalx/)
 
 ## Cell magics for conditional running based on tags
 Add a cell with
 ```
 %load_ext nbvalx
 ```
-at the beginning of a notebook to load **nbvalx** `IPython` extension. The extension is implemented in [`nbvalx/jupyter_magics.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/jupyter_magics.py).
+at the beginning of a notebook to load **nbvalx** `IPython` extension. The extension is implemented in [`nbvalx/jupyter_magics.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/jupyter_magics.py).
 
 The extension allows to register a list of allowed tags, and their values
 ```
@@ -51,11 +51,11 @@ if string_tag == "value1":
 ```
 The plain formulation is certainly less verbose and more compact than **nbvalx** equivalent one with four cells. However, it is less "testing-friendly", because the values of `bool_tag`, `int_tag` and `string_tag` are hardcoded in the notebook and cannot be easily varied. With a `pytest` terminology, **nbvalx** tags correspond to defining a parametrization of the notebook.
 
-See [`tests/notebooks/data/tags`](https://github.com/multiphenics/nbvalx/blob/main/tests/notebooks/data/tags) for a few simple notebooks using tags.
+See [`tests/notebooks/data/tags`](https://github.com/nbvalx/nbvalx/blob/main/tests/notebooks/data/tags) for a few simple notebooks using tags.
 
 ## Custom pytest hooks for jupyter notebooks
 
-The file [`nbvalx/pytest_hooks_notebooks.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) contains a few utility functions to be used in pytest configuration file for notebooks tests.
+The file [`nbvalx/pytest_hooks_notebooks.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) contains a few utility functions to be used in pytest configuration file for notebooks tests.
 The `pytest` hooks which can be customized in this way are:
 * `pytest_addoption`,
 * `pytest_collect_file`,
@@ -64,7 +64,7 @@ The `pytest` hooks which can be customized in this way are:
 * `pytest_runtest_teardown`, and
 * `pytest_sessionstart`.
 
-For clarity, the hooks implemented in [`nbvalx/pytest_hooks_notebooks.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) do not have a `pytest_` prefix, as it will be the user's responsability to pick them up and assign them to the corresponding `pytest` hook in a custom `conftest.py`, as show in [`tests/notebooks/conftest.py`](https://github.com/multiphenics/nbvalx/blob/main/tests/notebooks/conftest.py).
+For clarity, the hooks implemented in [`nbvalx/pytest_hooks_notebooks.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) do not have a `pytest_` prefix, as it will be the user's responsability to pick them up and assign them to the corresponding `pytest` hook in a custom `conftest.py`, as show in [`tests/notebooks/conftest.py`](https://github.com/nbvalx/nbvalx/blob/main/tests/notebooks/conftest.py).
 
 The hooks change the default behavior of `nbval` in the following ways:
 1. the options `--nbval` and `--nbval-lax`, which `nbval` requires to pass explicitly, are here enabled implicitly;
@@ -79,16 +79,16 @@ The hooks change the default behavior of `nbval` in the following ways:
 
 ## Custom pytest hooks for unit tests
 
-The file [`nbvalx/pytest_unit_tests.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/pytest_unit_tests.py) contains a few utility functions to be used in pytest configuration file for notebooks tests.
+The file [`nbvalx/pytest_unit_tests.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/pytest_unit_tests.py) contains a few utility functions to be used in pytest configuration file for notebooks tests.
 The `pytest` hooks which can be customized in this way are:
 * `pytest_runtest_setup`, and
 * `pytest_runtest_teardown`.
 
-For clarity, the hooks implemented in [`nbvalx/pytest_unit_tests.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) do not have a `pytest_` prefix, as it will be the user's responsability to pick them up and assign them to the corresponding `pytest` hook in a custom `conftest.py`, as show in [`tests/unit/conftest.py`](https://github.com/multiphenics/nbvalx/blob/main/tests/unit/conftest.py).
+For clarity, the hooks implemented in [`nbvalx/pytest_unit_tests.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) do not have a `pytest_` prefix, as it will be the user's responsability to pick them up and assign them to the corresponding `pytest` hook in a custom `conftest.py`, as show in [`tests/unit/conftest.py`](https://github.com/nbvalx/nbvalx/blob/main/tests/unit/conftest.py).
 
 The hooks are typically employed to obtain a `MPI`-parallel safe execution of python unit tests by calling garbage collection and putting a `MPI` barrier after each test.
 
 ## Custom pytest hooks for unit tests
-The file [`nbvalx/tempfile.py`](https://github.com/multiphenics/nbvalx/blob/main/nbvalx/tempfile.py) contains `MPI` parallel-safe context managers to create temporary files and directories. Similarly to the `tempfile` module in the standard library, the following context managers are provided:
+The file [`nbvalx/tempfile.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/tempfile.py) contains `MPI` parallel-safe context managers to create temporary files and directories. Similarly to the `tempfile` module in the standard library, the following context managers are provided:
 * `nbvalx.tempfile.TemporaryDirectory`,
 * `nbvalx.tempfile.TemporaryFile`.

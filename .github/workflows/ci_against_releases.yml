@@ -8,12 +8,12 @@ on:
 
 jobs:
   test_0_1_0_installing_from_github:
-    uses: multiphenics/nbvalx/.github/workflows/ci.yml@v0.1.0
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.1.0
     with:
       ref: v0.1.0
 
   test_0_1_0_installing_from_pypi:
-    uses: multiphenics/nbvalx/.github/workflows/ci.yml@v0.1.0
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.1.0
     with:
       ref: v0.1.0
       index: PyPI
@@ -21,7 +21,7 @@ jobs:
 
   warn:
     runs-on: ubuntu-latest
-    if: github.repository == 'multiphenics/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
+    if: github.repository == 'nbvalx/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
     steps:
       - name: Warn if scheduled workflow is about to be disabled
         uses: fem-on-colab/warn-workflow-about-to-be-disabled-action@main

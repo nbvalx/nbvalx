@@ -179,7 +179,7 @@ jobs:
 
   warn:
     runs-on: ubuntu-latest
-    if: github.repository == 'multiphenics/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
+    if: github.repository == 'nbvalx/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
     steps:
       - name: Warn if scheduled workflow is about to be disabled
         uses: fem-on-colab/warn-workflow-about-to-be-disabled-action@main
