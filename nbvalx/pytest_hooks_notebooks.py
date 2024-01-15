@@ -570,7 +570,10 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
             self._write_to_log_file("Output (jupyter)", self._transform_jupyter_outputs_to_text(self.cell.outputs))
             # Write cell name and id to log file
             self._write_to_log_file("Cell name", self.name)
-            self._write_to_log_file("Cell ID", self.cell.id)
+            if hasattr(self.cell, "id"):
+                self._write_to_log_file("Cell ID", self.cell.id)
+            else:
+                self._write_to_log_file("Cell ID", "not available")
 
     def _transform_jupyter_outputs_to_text(
             self, outputs: typing.Iterable[nbformat.NotebookNode]) -> str:
