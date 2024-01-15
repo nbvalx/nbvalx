@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Utility functions to be used in pytest configuration file for notebooks tests."""
 
+import collections
 import copy
 import fnmatch
 import glob
@@ -511,27 +512,66 @@ def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> No
 class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
     """Customize nbval IPyNbCell to write jupyter cell outputs to log file."""
 
+    _MockExceptionInfo = collections.namedtuple("_MockExceptionInfo", ["value"])
+
     def runtest(self) -> None:
         """
-        Redirect jupyter outputs to log file after test execution is completed.
+        Redirect jupyter outputs to log file and determine if exceptions were expected or not.
 
         In contrast to stdout, which is handled by the %%live_log magic, these outputs are not
-        written live to the log file. However, we expect the delay to be minimal since jupyter outputs
-        such as display_data or execute_result are typically shown when cell execution is completed.
+        written live to the log file, but only after test execution is completed. However, we expect
+        the delay to be minimal since jupyter outputs such as display_data or execute_result are
+        typically shown when cell execution is completed.
         """
         try:
-            super().runtest()
+            if (
+                self.parent._force_skip
+                    and
+                (not hasattr(self.cell, "id") or self.cell.id not in ("cluster_stop", ))
+            ):
+                # If previous cells in a notebook failed skip the rest of the notebook
+                raise pytest.skip.Exception(msg="A previous cell failed", pytrace=False)
+            else:
+                # Run the cell
+                super().runtest()
         except nbval.plugin.NbCellError as e:
             # Write the exception to log file
             if e.inner_traceback:
                 self._write_to_log_file("Traceback", e.inner_traceback)
-            # Re-raise
-            raise
+            # Determine if exception was expected or not
+            lines = self.cell.source.splitlines()
+            while len(lines) > 1 and lines[0].startswith("%"):
+                lines = lines[1:]
+            if len(lines) > 1 and lines[0].startswith("# PYTEST_XFAIL"):
+                xfail_line = lines[0]
+                xfail_comment = xfail_line.replace("# ", "")
+                xfail_marker, xfail_reason = xfail_comment.split(": ")
+                assert xfail_marker in (
+                    "PYTEST_XFAIL", "PYTEST_XFAIL_IN_PARALLEL",
+                    "PYTEST_XFAIL_AND_SKIP_NEXT", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT")
+                if xfail_marker in ("PYTEST_XFAIL_AND_SKIP_NEXT", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT"):
+                    # The failure, even though expected, forces the rest of the notebook to be skipped.
+                    self.parent._force_skip = True
+                if (xfail_marker in ("PYTEST_XFAIL", "PYTEST_XFAIL_AND_SKIP_NEXT")
+                    or (xfail_marker in ("PYTEST_XFAIL_IN_PARALLEL", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT")
+                        and self.config.option.np > 1)):
+                    # This failure was expected: report the reason of xfail.
+                    original_repr_failure = self.repr_failure(IPyNbCell._MockExceptionInfo(value=e))
+                    raise pytest.xfail.Exception(
+                        msg=xfail_reason.capitalize() + "\n" + original_repr_failure, pytrace=False)
+            else:  # pragma: no cover
+                # An unexpected error forces the rest of the notebook to be skipped.
+                self.parent._force_skip = True
+                # Re-raise exception
+                raise
         finally:
             # Store outputs
-            self.cell.outputs = self.test_outputs
+            if self.test_outputs is None:
+                self.cell.outputs = []
+            else:
+                self.cell.outputs = self.test_outputs
             # Write other jupyter outputs to log file
-            self._write_to_log_file("Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
+            self._write_to_log_file("Output (jupyter)", self._transform_jupyter_outputs_to_text(self.cell.outputs))
             # Write cell name and id to log file
             self._write_to_log_file("Cell name", self.name)
             self._write_to_log_file("Cell ID", self.cell.id)
@@ -577,6 +617,7 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
         """Customize parent initialization by disabling output comparison."""
         super(IPyNbFile, self).__init__(*args, **kwargs)
         self.compare_outputs = False
+        self._force_skip = False
 
     def collect(self) -> typing.Iterable[IPyNbCell]:
         """Strip nbval's IPyNbCell to the corresponding class defined in this module."""
@@ -603,55 +644,3 @@ def collect_file(  # type: ignore[no-any-unimported]
         return IPyNbFile.from_parent(parent, path=file_path)  # type: ignore[no-any-return]
     else:
         return None
-
-
-def runtest_setup(item: IPyNbFile) -> None:
-    """Insert skips on cell failure."""
-    # Do the normal setup
-    item.setup()
-    # If previous cells in a notebook failed skip the rest of the notebook
-    if hasattr(item, "_force_skip"):
-        if not hasattr(item.cell, "id") or item.cell.id not in ("cluster_stop", ):
-            pytest.skip("A previous cell failed")
-
-
-def runtest_makereport(item: IPyNbFile, call: pytest.CallInfo[None]) -> None:
-    """Determine whether the current cell failed or not."""
-    if call.when == "call":
-        if call.excinfo:
-            source = item.cell.source
-            lines = source.splitlines()
-            while len(lines) > 1 and lines[0].startswith("%"):
-                lines = lines[1:]
-            if len(lines) > 1 and lines[0].startswith("# PYTEST_XFAIL"):
-                xfail_line = lines[0]
-                xfail_comment = xfail_line.replace("# ", "")
-                xfail_marker, xfail_reason = xfail_comment.split(": ")
-                assert xfail_marker in (
-                    "PYTEST_XFAIL", "PYTEST_XFAIL_IN_PARALLEL",
-                    "PYTEST_XFAIL_AND_SKIP_NEXT", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT")
-                if (xfail_marker in ("PYTEST_XFAIL", "PYTEST_XFAIL_AND_SKIP_NEXT")
-                    or (xfail_marker in ("PYTEST_XFAIL_IN_PARALLEL", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT")
-                        and item.config.option.np > 1)):
-                    # This failure was expected: report the reason of xfail.
-                    original_repr_failure = item.repr_failure(call.excinfo)
-                    call.excinfo._excinfo = (
-                        call.excinfo._excinfo[0],  # type: ignore[index]
-                        pytest.xfail.Exception(xfail_reason.capitalize() + "\n" + original_repr_failure),
-                        call.excinfo._excinfo[2])  # type: ignore[index]
-                if xfail_marker in ("PYTEST_XFAIL_AND_SKIP_NEXT", "PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT"):
-                    # The failure, even though expected, forces the rest of the notebook to be skipped.
-                    item._force_skip = True
-            else:  # pragma: no cover
-                # An unexpected error forces the rest of the notebook to be skipped.
-                item._force_skip = True
-
-
-def runtest_teardown(item: IPyNbFile, nextitem: typing.Optional[IPyNbFile]) -> None:
-    """Propagate cell failure."""
-    # Do the normal teardown
-    item.teardown()
-    # Inform next cell of the notebook of failure of any previous cells
-    if hasattr(item, "_force_skip"):
-        if nextitem is not None and nextitem.name != "Cell 0":
-            nextitem._force_skip = True

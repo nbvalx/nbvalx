@@ -65,10 +65,7 @@ See [`tests/notebooks/data/tags`](https://github.com/nbvalx/nbvalx/blob/main/tes
 The file [`nbvalx/pytest_hooks_notebooks.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) contains a few utility functions to be used in pytest configuration file for notebooks tests.
 The `pytest` hooks which can be customized in this way are:
 * `pytest_addoption`,
-* `pytest_collect_file`,
-* `pytest_runtest_makereport`,
-* `pytest_runtest_setup`,
-* `pytest_runtest_teardown`, and
+* `pytest_collect_file`, and
 * `pytest_sessionstart`.
 
 For clarity, the hooks implemented in [`nbvalx/pytest_hooks_notebooks.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/pytest_hooks_notebooks.py) do not have a `pytest_` prefix, as it will be the user's responsability to pick them up and assign them to the corresponding `pytest` hook in a custom `conftest.py`, as show in [`tests/notebooks/conftest.py`](https://github.com/nbvalx/nbvalx/blob/main/tests/notebooks/conftest.py).

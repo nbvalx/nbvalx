@@ -11,9 +11,6 @@ import nbvalx.pytest_hooks_notebooks
 
 pytest_addoption = nbvalx.pytest_hooks_notebooks.addoption
 pytest_collect_file = nbvalx.pytest_hooks_notebooks.collect_file
-pytest_runtest_setup = nbvalx.pytest_hooks_notebooks.runtest_setup
-pytest_runtest_makereport = nbvalx.pytest_hooks_notebooks.runtest_makereport
-pytest_runtest_teardown = nbvalx.pytest_hooks_notebooks.runtest_teardown
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
