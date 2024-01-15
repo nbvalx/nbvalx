@@ -106,17 +106,19 @@ def sessionstart(session: pytest.Session) -> None:
     if work_dir != ".":
         cleanup_patterns = [*link_data_in_work_dir, "**/*.ipynb"]
         for dirpath in dirs:
-            work_dirpath = os.path.join(dirpath, work_dir)
-            if os.path.exists(work_dirpath):  # pragma: no cover
-                for dir_entry in _pytest.pathlib.visit(work_dirpath, session._recurse):
-                    filepath = str(dir_entry.path)
-                    if any(fnmatch.fnmatch(filepath, cleanup_pattern) for cleanup_pattern in cleanup_patterns):
-                        if dir_entry.is_file():
-                            os.remove(filepath)
-                        elif dir_entry.is_dir():
-                            shutil.rmtree(filepath, ignore_errors=True)
-                        if filepath in files:
-                            files.remove(filepath)
+            for dir_entry in _pytest.pathlib.visit(dirpath, lambda _: True):
+                filepath = str(dir_entry.path)
+                if (
+                    any(fnmatch.fnmatch(filepath, cleanup_pattern) for cleanup_pattern in cleanup_patterns)
+                        and
+                    work_dir in filepath
+                ):
+                    if dir_entry.is_file():
+                        os.remove(filepath)
+                    elif dir_entry.is_dir():  # pragma: no cover
+                        shutil.rmtree(filepath, ignore_errors=True)
+                    if filepath in files:  # pragma: no cover
+                        files.remove(filepath)
     # Link data in the work directory
     if work_dir != "." and len(link_data_in_work_dir) > 0:
         for filepath in files:
