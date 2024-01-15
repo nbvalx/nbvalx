@@ -391,13 +391,8 @@ else:
 class LiveLogStream(typing.IO):
     """A stream that redirects to both sys.stdout and file."""
 
-    def __init__(self, filename: str) -> None:
-        self._targets = [sys.stdout, open(filename, "a", buffering=1)]
-
-    @property
-    def log_file(self) -> typing.IO:
-        """Stream associated to the log file"""
-        return self._targets[-1]
+    def __init__(self, log_file: typing.IO) -> None:
+        self._targets = [sys.stdout, log_file]
 
     def write(self, string: typing.AnyStr) -> None:
         """Write string to all targets."""
@@ -408,8 +403,8 @@ class LiveLogStream(typing.IO):
 class LiveLogRedirection:
     """A context manager that wraps LiveLogStream to redirect to both sys.stdout and file."""
 
-    def __init__(self, filename: str, cell: typing.Optional[str] = None) -> None:
-        self._filename = filename
+    def __init__(self, log_file: typing.IO, cell: typing.Optional[str] = None) -> None:
+        self._log_file = log_file
         self._cell = cell
         self._old_stdout = None
         self._new_stdout = None
@@ -417,17 +412,17 @@ class LiveLogRedirection:
     def __enter__(self) -> None:
         """Replace sys.stdout with a LiveLogStream."""
         # Setup the live log stream
-        self._new_stdout = LiveLogStream(self._filename)
+        self._new_stdout = LiveLogStream(self._log_file)
         # Print helper content to the live log stream
-        print("===========================", file=self._new_stdout.log_file)
-        print(file=self._new_stdout.log_file)
-        print("Input:", file=self._new_stdout.log_file)
+        print("===========================", file=self._log_file)
+        print(file=self._log_file)
+        print("Input:", file=self._log_file)
         if self._cell is not None:
-            print(self._cell.strip("\\n"), file=self._new_stdout.log_file)
+            print(self._cell.strip("\\n"), file=self._log_file)
         else:
-            print("empty", file=self._new_stdout.log_file)
-        print(file=self._new_stdout.log_file)
-        print("Output (stdout):", file=self._new_stdout.log_file)
+            print("empty", file=self._log_file)
+        print(file=self._log_file)
+        print("Output (stdout):", file=self._log_file)
         # Override standard stdout
         self._old_stdout = sys.stdout
         sys.stdout = self._new_stdout
@@ -439,9 +434,8 @@ class LiveLogRedirection:
     ) -> None:
         """Restore sys.stdout to its original value."""
         # Print a final blank line to live log stream
-        print(file=self._new_stdout.log_file)
+        print(file=self._log_file)
         # Clean up the live log stream
-        self._new_stdout.log_file.close()
         self._new_stdout = None
         # Restore standard stdout
         sys.stdout = self._old_stdout
@@ -460,9 +454,11 @@ def live_log(line: str, cell: typing.Optional[str] = None) -> None:
             raise nbvalx.jupyter_magics.IPythonExtension.SuppressTracebackMockError(e)
 
 
-live_log.__file__ = "{ipynb_path[:-6]}" + live_log_suffix  # noqa: E501
+live_log_filename = "{ipynb_path[:-6]}" + live_log_suffix  # noqa: E501
 del live_log_suffix
-open(live_log.__file__, "w").close()
+open(live_log_filename, "w").close()
+live_log.__file__ = open(live_log_filename, "a", buffering=1)
+del live_log_filename
 
 IPython.get_ipython().register_magic_function(live_log, "cell")
 IPython.get_ipython().set_custom_exc(
