@@ -389,7 +389,7 @@ else:
 def live_log(line: str, cell: typing.Optional[str] = None) -> None:
     """Redirect notebook to log file."""
     with contextlib.redirect_stdout(open(live_log.__file__, "a", buffering=1)):
-        print("---------------------------")
+        print("===========================")
         print()
         print("Input:")
         print(cell.strip("\\n"))
