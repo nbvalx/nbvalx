@@ -5,8 +5,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Utility functions to be used in pytest configuration file for notebooks tests."""
 
-import collections
-import contextlib
 import copy
 import fnmatch
 import glob
@@ -369,7 +367,8 @@ cov.save()
                 # Add the live_log magic to every existing cell
                 _add_cell_magic(nb_tag, "%%live_log")
                 # Add a cell on top to define the live_log magic
-                live_log_magic_code = f'''import contextlib
+                live_log_magic_code = f'''import sys
+import types
 import typing
 
 import IPython
@@ -386,15 +385,69 @@ else:
         live_log_suffix += "-" + str(mpi4py.MPI.COMM_WORLD.rank)
 
 
+class LiveLogStream(typing.IO):
+    """A stream that redirects to both sys.stdout and file."""
+
+    def __init__(self, filename: str) -> None:
+        self._targets = [sys.stdout, open(filename, "a", buffering=1)]
+
+    @property
+    def log_file(self) -> typing.IO:
+        """Stream associated to the log file"""
+        return self._targets[-1]
+
+    def write(self, string: typing.AnyStr) -> None:
+        """Write string to all targets."""
+        for target in self._targets:
+            target.write(string)
+
+
+class LiveLogRedirection:
+    """A context manager that wraps LiveLogStream to redirect to both sys.stdout and file."""
+
+    def __init__(self, filename: str, cell: typing.Optional[str] = None) -> None:
+        self._filename = filename
+        self._cell = cell
+        self._old_stdout = None
+        self._new_stdout = None
+
+    def __enter__(self) -> None:
+        """Replace sys.stdout with a LiveLogStream."""
+        # Setup the live log stream
+        self._new_stdout = LiveLogStream(self._filename)
+        # Print helper content to the live log stream
+        print("===========================", file=self._new_stdout.log_file)
+        print(file=self._new_stdout.log_file)
+        print("Input:", file=self._new_stdout.log_file)
+        if self._cell is not None:
+            print(self._cell.strip("\\n"), file=self._new_stdout.log_file)
+        else:
+            print("empty", file=self._new_stdout.log_file)
+        print(file=self._new_stdout.log_file)
+        print("Output (stdout):", file=self._new_stdout.log_file)
+        # Override standard stdout
+        self._old_stdout = sys.stdout
+        sys.stdout = self._new_stdout
+
+    def __exit__(
+        self, exception_type: typing.Optional[typing.Type[BaseException]],
+        exception_value: typing.Optional[BaseException],
+        traceback: typing.Optional[types.TracebackType]
+    ) -> None:
+        """Restore sys.stdout to its original value."""
+        # Print a final blank line to live log stream
+        print(file=self._new_stdout.log_file)
+        # Clean up the live log stream
+        self._new_stdout.log_file.close()
+        self._new_stdout = None
+        # Restore standard stdout
+        sys.stdout = self._old_stdout
+        self._old_stdout = None
+
+
 def live_log(line: str, cell: typing.Optional[str] = None) -> None:
     """Redirect notebook to log file."""
-    with contextlib.redirect_stdout(open(live_log.__file__, "a", buffering=1)):
-        print("===========================")
-        print()
-        print("Input:")
-        print(cell.strip("\\n"))
-        print()
-        print("Output (stdout):")
+    with LiveLogRedirection(live_log.__file__, cell):
         result = IPython.get_ipython().run_cell(cell)
         try:
             result.raise_error()
@@ -402,8 +455,6 @@ def live_log(line: str, cell: typing.Optional[str] = None) -> None:
             # The exception has already been printed to the terminal, there is
             # no need to print it again
             raise nbvalx.jupyter_magics.IPythonExtension.SuppressTracebackMockError(e)
-        finally:
-            print()
 
 
 live_log.__file__ = "{ipynb_path[:-6]}" + live_log_suffix  # noqa: E501
@@ -458,8 +509,6 @@ def _add_cell_magic(nb: nbformat.NotebookNode, additional_cell_magic: str) -> No
 class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
     """Customize nbval IPyNbCell to write jupyter cell outputs to log file."""
 
-    _MockExceptionInfo = collections.namedtuple("_MockExceptionInfo", ["value"])
-
     def runtest(self) -> None:
         """
         Redirect jupyter outputs to log file after test execution is completed.
@@ -472,16 +521,18 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
             super().runtest()
         except nbval.plugin.NbCellError as e:
             # Write the exception to log file
-            self._write_to_log_file(
-                "Failure", self.repr_failure(IPyNbCell._MockExceptionInfo(value=e)))
+            if e.inner_traceback:
+                self._write_to_log_file("Traceback", e.inner_traceback)
             # Re-raise
             raise
         finally:
+            # Store outputs
+            self.cell.outputs = self.test_outputs
             # Write other jupyter outputs to log file
-            self._write_to_log_file(
-                "Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
-        # Write cell name to log file
-        self._write_to_log_file("Cell name", self.name)
+            self._write_to_log_file("Output (jupyter)", self._transform_jupyter_outputs_to_text(self.test_outputs))
+            # Write cell name and id to log file
+            self._write_to_log_file("Cell name", self.name)
+            self._write_to_log_file("Cell ID", self.cell.id)
 
     def _transform_jupyter_outputs_to_text(
             self, outputs: typing.Iterable[nbformat.NotebookNode]) -> str:
@@ -490,7 +541,8 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
         text_outputs = list()
         for out in outputs:
             if out["output_type"] == "stream":
-                text_outputs.append("[" + out["name"] + "] " + out["text"])
+                if out["name"] != "stdout":  # it was already printed by %%live_log
+                    text_outputs.append("[" + out["name"] + "] " + out["text"])
             elif out["output_type"] in ("display_data", "execute_result") and "text/plain" in out["data"]:
                 text_outputs.append("[" + out["output_type"] + "] " + out["data"]["text/plain"])
         if len(text_outputs) > 0:
@@ -502,18 +554,18 @@ class IPyNbCell(nbval.plugin.IPyNbCell):  # type: ignore[misc,no-any-unimported]
         """Write content to a section of the live log file."""
         if "%%live_log" in self.cell.source:
             for log_file in glob.glob(str(self.parent.fspath)[:-6] + ".log*"):
-                with contextlib.redirect_stdout(open(log_file, "a", buffering=1)):
-                    print(section + ":")
+                with open(log_file, "a", buffering=1) as log_file_handler:
+                    print(section + ":", file=log_file_handler)
                     content = self._strip_ansi(content)
                     if content != "":
-                        print(content)
-                    print()
+                        print(content, file=log_file_handler)
+                    print(file=log_file_handler)
 
     def _strip_ansi(self, content: str) -> str:
         """Strip colors while writing to file. See strip_ansi on PyPI."""
         return self._strip_ansi_pattern.sub("", content)
 
-    _strip_ansi_pattern = re.compile(r"\x1B\[\d+(;\d+){0,2}m")
+    _strip_ansi_pattern = re.compile(r"\x1B\[\d+(;\d+){0,3}m")
 
 
 class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
@@ -529,6 +581,14 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
         for cell in super().collect():
             yield IPyNbCell.from_parent(
                 cell.parent, name=cell.name, cell_num=cell.cell_num, cell=cell.cell, options=cell.options)
+
+    def teardown(self) -> None:
+        """Save outputs in a log notebook."""
+        # Save outputs in a log notebook
+        with open(str(self.fspath)[:-6] + ".log.ipynb", "w") as f:
+            nbformat.write(self.nb, f)  # type: ignore[no-untyped-call]
+        # Do the normal teardown
+        super().teardown()
 
 
 def collect_file(  # type: ignore[no-any-unimported]
