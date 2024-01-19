@@ -114,7 +114,9 @@ def sessionstart(session: pytest.Session) -> None:
                         and
                     work_dir in filepath
                 ):
-                    if dir_entry.is_file():
+                    if dir_entry.is_symlink():
+                        os.unlink(filepath)
+                    elif dir_entry.is_file():
                         os.remove(filepath)
                     elif dir_entry.is_dir():  # pragma: no cover
                         shutil.rmtree(filepath, ignore_errors=True)
