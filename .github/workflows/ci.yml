@@ -159,7 +159,7 @@ jobs:
           python3 -m coverage report --fail-under=100 --show-missing --skip-covered
       - name: Upload notebooks logs as an artifact in case of failure
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "notebooks-logs-${{ matrix.python-version }}"
           path: |
