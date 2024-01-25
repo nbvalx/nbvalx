@@ -12,7 +12,7 @@ import IPython
 import simpleeval
 
 
-class IPythonExtension(object):
+class IPythonExtension:
     """Implementation and storage for IPython extension."""
 
     loaded = False

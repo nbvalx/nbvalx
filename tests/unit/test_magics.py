@@ -13,7 +13,7 @@ import pytest
 import nbvalx.jupyter_magics
 
 
-class MockMagicsManager(object):
+class MockMagicsManager:
     """A mock IPython magics manager."""
 
     def __init__(self) -> None:
@@ -23,7 +23,7 @@ class MockMagicsManager(object):
         }
 
 
-class MockIPythonResult(object):
+class MockIPythonResult:
     """A mock IPython result."""
 
     def raise_error(self) -> None:
@@ -31,7 +31,7 @@ class MockIPythonResult(object):
         pass
 
 
-class MockIPythonShell(object):
+class MockIPythonShell:
     """A mock IPython shell."""
 
     def __init__(self) -> None:

@@ -616,7 +616,7 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:  # noqa: ANN401
         """Customize parent initialization by disabling output comparison."""
-        super(IPyNbFile, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.compare_outputs = False
         self._force_skip = False
 
