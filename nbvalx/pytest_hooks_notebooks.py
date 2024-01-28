@@ -18,10 +18,8 @@ import textwrap
 import typing
 
 import _pytest.main
-import _pytest.pathlib
 import nbformat
 import nbval.plugin
-import py
 import pytest
 
 import nbvalx.jupyter_magics
@@ -86,62 +84,66 @@ def sessionstart(session: pytest.Session) -> None:
             "Please use a subdirectory as work directory to prevent losing the original notebooks")
     # Verify if keyword matching (-k option) is enabled, as it will be used to match tags
     keyword = session.config.option.keyword
+    # pathlib.PurePath.full_match is only available in python 3.13+. In the meantime,
+    # implement the comparison using fnmatch
+    def full_match(path: pathlib.Path, pattern: str) -> bool:
+        """Backport of pathlib.PurePath.full_match."""
+        return fnmatch.fnmatch(str(path), pattern)
     # List existing files
     files = list()
     dirs = set()
     for arg in session.config.args:
         dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
-        if os.path.isdir(str(dir_or_file)):
-            for dir_entry in _pytest.pathlib.visit(dir_or_file, session._recurse):
-                if dir_entry.is_file():
-                    filepath = str(dir_entry.path)
-                    if fnmatch.fnmatch(filepath, "**/*.ipynb"):
-                        files.append(filepath)
-                dirs.add(str(dir_or_file))
+        if dir_or_file.is_dir():
+            dir_or_file_candidates = [dir_entry for dir_entry in dir_or_file.rglob("*")]
         else:  # pragma: no cover
-            assert fnmatch.fnmatch(str(dir_or_file), "**/*.ipynb")
-            files.append(str(dir_or_file))
-            dirs.add(os.path.dirname(dir_or_file))
-    session.config.args = list(dirs)
+            assert full_match(dir_or_file, "**/*.ipynb")
+            dir_or_file_candidates = [dir_or_file]
+        for dir_entry in dir_or_file_candidates:
+            if dir_entry.is_file():
+                if (
+                    full_match(dir_entry, "**/*.ipynb")
+                        and
+                    not full_match(dir_entry, f"**/{work_dir}/*.ipynb")
+                        and
+                    not any(full_match(dir_entry, f"**/{parent}/*.ipynb") for parent in pathlib.Path(work_dir).parents)
+                ):
+                    files.append(dir_entry)
+                    dirs.add(dir_entry.parent)
+    session.config.args = [str(dir_) for dir_ in dirs]
     # Clean up possibly existing links and notebooks in work directory from a previous run
     if work_dir != ".":
         cleanup_patterns = [*link_data_in_work_dir, "**/*.ipynb"]
-        for dirpath in dirs:
-            for dir_entry in _pytest.pathlib.visit(dirpath, lambda _: True):
-                filepath = str(dir_entry.path)
+        for dir_ in dirs:
+            for dir_entry in dir_.rglob("*"):
                 if (
-                    any(fnmatch.fnmatch(filepath, cleanup_pattern) for cleanup_pattern in cleanup_patterns)
+                    any(full_match(dir_entry, cleanup_pattern) for cleanup_pattern in cleanup_patterns)
                         and
-                    work_dir in filepath
+                    work_dir in str(dir_entry)
                 ):
-                    if dir_entry.is_symlink():
-                        os.unlink(filepath)
-                    elif dir_entry.is_file():
-                        os.remove(filepath)
+                    if dir_entry.is_symlink() or dir_entry.is_file():
+                        dir_entry.unlink()
                     elif dir_entry.is_dir():  # pragma: no cover
-                        shutil.rmtree(filepath, ignore_errors=True)
-                    if filepath in files:  # pragma: no cover
-                        files.remove(filepath)
+                        shutil.rmtree(dir_entry, ignore_errors=True)
+                    if dir_entry in files:  # pragma: no cover
+                        files.remove(dir_entry)
     # Link data in the work directory
     if work_dir != "." and len(link_data_in_work_dir) > 0:
-        for filepath in files:
-            for dir_entry in _pytest.pathlib.visit(os.path.dirname(filepath), lambda _: True):
-                source_path = str(dir_entry.path)
+        for file_ in files:
+            for source_path in file_.parent.rglob("*"):
                 if (
-                    any(fnmatch.fnmatch(source_path, pattern) for pattern in link_data_in_work_dir)
+                    any(full_match(source_path, pattern) for pattern in link_data_in_work_dir)
                         and
-                    work_dir not in source_path
+                    work_dir not in str(source_path)
                 ):
-                    destination_path = os.path.join(
-                        os.path.dirname(filepath), work_dir,
-                        os.path.relpath(source_path, os.path.dirname(filepath)))
-                    if not os.path.exists(destination_path):
-                        os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-                        os.symlink(source_path, destination_path)
+                    destination_path = file_.parent / work_dir / source_path.relative_to(file_.parent)
+                    if not destination_path.exists():
+                        destination_path.parent.mkdir(parents=True, exist_ok=True)
+                        destination_path.symlink_to(source_path)
     # Process each notebook
-    for filepath in files:
+    for file_ in files:
         # Read in notebook
-        with open(filepath) as f:
+        with open(file_) as f:
             nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
         # Determine if the run_if extension is used
         run_if_loaded = False
@@ -160,19 +162,19 @@ def sessionstart(session: pytest.Session) -> None:
                 elif cell.source.startswith("__notebook_basename__"):
                     lines = cell.source.splitlines()
                     assert len(lines) == 2, (
-                        f"Use a standalone cell for __notebook_basename__ and __notebook_dirname__ in {filepath}")
+                        f"Use a standalone cell for __notebook_basename__ and __notebook_dirname__ in {file_}")
                     assert lines[0].startswith("__notebook_basename__"), (
-                        f"__notebook_basename__ must be on the first line of the cell in {filepath}")
+                        f"__notebook_basename__ must be on the first line of the cell in {file_}")
                     assert lines[1].startswith("__notebook_dirname__"), (
-                        f"__notebook_dirname__ must be on the second line of the cell in {filepath}")
+                        f"__notebook_dirname__ must be on the second line of the cell in {file_}")
 
                     _, hardcoded_notebook_name = lines[0].split("=")
                     hardcoded_notebook_name = hardcoded_notebook_name.strip()
                     assert hardcoded_notebook_name[0] in ('"', "'")
                     assert hardcoded_notebook_name[-1] in ('"', "'")
                     hardcoded_notebook_name = hardcoded_notebook_name[1:-1]
-                    assert hardcoded_notebook_name == os.path.basename(filepath), (
-                        f"Wrong attribute __notebook_basename__ for {filepath}")
+                    assert hardcoded_notebook_name == file_.name, (
+                        f"Wrong attribute __notebook_basename__ for {file_}")
 
                     _, hardcoded_notebook_path = lines[1].split("=")
                     hardcoded_notebook_path = hardcoded_notebook_path.strip()
@@ -204,9 +206,7 @@ def sessionstart(session: pytest.Session) -> None:
                     if keyword not in allowed_tags_keyword:
                         continue
                 # Determine what will be the new notebook path
-                ipynb_path = os.path.join(
-                    os.path.dirname(filepath), work_dir,
-                    os.path.basename(filepath).replace(".ipynb", f"[{tag_keyword}].ipynb"))
+                nb_tag_path = file_.parent / work_dir / file_.name.replace(".ipynb", f"[{tag_keyword}].ipynb")
                 # Replace tag and, if collapsing notebooks, strip cells with other tags
                 cells_tag = list()
                 for cell in nb.cells:
@@ -281,18 +281,17 @@ def sessionstart(session: pytest.Session) -> None:
                 nb_tag = copy.deepcopy(nb)
                 nb_tag.cells = cells_tag
                 # Store notebook in dictionary
-                nb_tags[ipynb_path] = nb_tag
+                nb_tags[nb_tag_path] = nb_tag
         else:
             # Create a temporary copy only if no keyword is provided, as untagged
             # notebooks would not match any non null keyword
             if keyword == "":
                 # Determine what will be the new notebook path
-                ipynb_path = os.path.join(
-                    os.path.dirname(filepath), work_dir, os.path.basename(filepath))
+                nb_tag_path = file_.parent / work_dir / file_.name
                 # Store notebook in dictionary
-                nb_tags[ipynb_path] = nb
+                nb_tags[nb_tag_path] = nb
         # Replace notebook name
-        for (ipynb_path, nb_tag) in nb_tags.items():
+        for (nb_tag_path, nb_tag) in nb_tags.items():
             for cell in nb_tag.cells:
                 if cell.cell_type == "code":
                     if cell.source.startswith("__notebook_basename__"):
@@ -309,8 +308,8 @@ def sessionstart(session: pytest.Session) -> None:
                                 ])
 
                         cell.source = "\n".join([
-                            wrap_if_long_line("basename", os.path.basename(ipynb_path)),
-                            wrap_if_long_line("dirname", os.path.dirname(ipynb_path))
+                            wrap_if_long_line("basename", str(nb_tag_path.name)),
+                            wrap_if_long_line("dirname", str(nb_tag_path.parent))
                         ])
         # Comment out xfail cells when only asked to create notebooks, so that the user
         # who requested them can run all cells
@@ -342,7 +341,7 @@ def sessionstart(session: pytest.Session) -> None:
         # * the user who requested notebook creation may not want coverage testing to take place
         # * the additional cell may interfere with linting
         if coverage_source != "" and ipynb_action != "create-notebooks":
-            for (ipynb_path, nb_tag) in nb_tags.items():
+            for (nb_tag_path, nb_tag) in nb_tags.items():
                 # Add a cell on top to start coverage collection
                 coverage_start_code = f"""import coverage
 
@@ -368,7 +367,7 @@ cov.save()
         # * the user who requested notebook creation may not want redirection to take place
         # * the additional cell may interfere with linting
         if ipynb_action != "create-notebooks":
-            for (ipynb_path, nb_tag) in nb_tags.items():
+            for (nb_tag_path, nb_tag) in nb_tags.items():
                 # Add the live_log magic to every existing cell
                 _add_cell_magic(nb_tag, "%%live_log")
                 # Add a cell on top to define the live_log magic
@@ -456,7 +455,7 @@ def live_log(line: str, cell: typing.Optional[str] = None) -> None:
             raise nbvalx.jupyter_magics.IPythonExtension.SuppressTracebackMockError(e)
 
 
-live_log_filename = "{ipynb_path[:-6]}" + live_log_suffix  # noqa: E501
+live_log_filename = "{str(nb_tag_path)[:-6]}" + live_log_suffix  # noqa: E501
 del live_log_suffix
 open(live_log_filename, "w").close()
 live_log.__file__ = open(live_log_filename, "a", buffering=1)
@@ -471,7 +470,7 @@ IPython.get_ipython().set_custom_exc(
                 nb_tag.cells.insert(0, live_log_magic_cell)
         # Add parallel support
         if np > 1:
-            for (ipynb_path, nb_tag) in nb_tags.items():
+            for (nb_tag_path, nb_tag) in nb_tags.items():
                 # Add the px magic to every existing cell
                 _add_cell_magic(nb_tag, "%%px --no-stream" if ipynb_action != "create-notebooks" else "%%px")
                 # Add a cell on top to start a new ipyparallel cluster
@@ -488,9 +487,9 @@ cluster.start_and_connect_sync()"""
                 cluster_stop_cell.id = "cluster_stop"
                 nb_tag.cells.append(cluster_stop_cell)
         # Write modified notebooks to the work directory
-        for (ipynb_path, nb_tag) in nb_tags.items():
-            os.makedirs(os.path.dirname(ipynb_path), exist_ok=True)
-            with open(ipynb_path, "w") as f:
+        for (nb_tag_path, nb_tag) in nb_tags.items():
+            nb_tag_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(nb_tag_path, "w") as f:
                 nbformat.write(nb_tag, f)  # type: ignore[no-untyped-call]
     # If the work directory is hidden, patch default norecursepatterns so that the files
     # we created will not get ignored
@@ -635,9 +634,7 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
         super().teardown()
 
 
-def collect_file(  # type: ignore[no-any-unimported]
-    file_path: pathlib.Path, path: py.path.local, parent: pytest.Collector
-) -> typing.Optional[IPyNbFile]:
+def collect_file(file_path: pathlib.Path, parent: pytest.Collector) -> typing.Optional[IPyNbFile]:
     """Collect IPython notebooks using the custom pytest nbval collector."""
     ipynb_action = parent.config.option.ipynb_action
     work_dir = parent.config.option.work_dir

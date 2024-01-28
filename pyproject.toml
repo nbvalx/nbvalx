@@ -50,14 +50,14 @@ funding = "https://github.com/sponsors/francesco-ballarin"
 unit_tests = [
     # this contains optional dependencies that users should have in order to use nbvalx/pytest_hooks_unit_tests.py
     "mpi4py",
-    "pytest >= 7.0"
+    "pytest >= 8.0"
 ]
 notebooks = [
     # this contains optional dependencies that users should have in order to use nbvalx/pytest_hooks_notebooks.py
     "ipyparallel",
     "mpi4py",
     "nbval",
-    "pytest >= 7.0"
+    "pytest >= 8.0"
 ]
 docs = [
     "sphinx"
@@ -72,7 +72,7 @@ lint = [
 tests = [
     # not to be confused with unit_tests: this contains requirements to test nbvalx itself, not to use it
     "coverage[toml]",
-    "pytest"
+    "pytest >= 8.0"
 ]
 
 [tool.isort]
@@ -96,8 +96,7 @@ module = [
     "ipyparallel",
     "nbformat",
     "nbval.*",
-    "simpleeval",
-    "py"
+    "simpleeval"
 ]
 ignore_missing_imports = true
 
