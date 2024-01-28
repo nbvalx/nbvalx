@@ -106,6 +106,8 @@ def sessionstart(session: pytest.Session) -> None:
                 if (
                     full_match(dir_entry, "**/*.ipynb")
                         and
+                    not full_match(dir_entry, "**/.ipynb_checkpoints/*.ipynb")
+                        and
                     not full_match(dir_entry, f"**/{work_dir}/*.ipynb")
                         and
                     not any(full_match(dir_entry, f"**/{parent}/*.ipynb") for parent in pathlib.Path(work_dir).parents)
