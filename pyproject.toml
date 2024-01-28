@@ -47,7 +47,7 @@ issues = "https://github.com/nbvalx/nbvalx/issues"
 funding = "https://github.com/sponsors/francesco-ballarin"
 
 [project.optional-dependencies]
-unit_tests = [
+unit-tests = [
     # this contains optional dependencies that users should have in order to use nbvalx/pytest_hooks_unit_tests.py
     "mpi4py",
     "pytest >= 8.0"
