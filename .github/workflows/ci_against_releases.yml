@@ -43,6 +43,18 @@ jobs:
       index: PyPI
       index_version: 0.2.1
 
+  test_0_3_0_installing_from_github:
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.0
+    with:
+      ref: v0.3.0
+
+  test_0_3_0_installing_from_pypi:
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.0
+    with:
+      ref: v0.3.0
+      index: PyPI
+      index_version: 0.3.0
+
   warn:
     runs-on: ubuntu-latest
     if: github.repository == 'nbvalx/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
