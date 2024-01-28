@@ -91,14 +91,16 @@ def sessionstart(session: pytest.Session) -> None:
         return fnmatch.fnmatch(str(path), pattern)
     # List existing files
     files = list()
-    dirs = set()
+    dirs = list()
     for arg in session.config.args:
         dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
         if dir_or_file.is_dir():
             dir_or_file_candidates = [dir_entry for dir_entry in dir_or_file.rglob("*")]
+            dirs.append(dir_or_file)
         else:  # pragma: no cover
             assert full_match(dir_or_file, "**/*.ipynb")
             dir_or_file_candidates = [dir_or_file]
+            dirs.append(dir_or_file.parent)
         for dir_entry in dir_or_file_candidates:
             if dir_entry.is_file():
                 if (
@@ -109,7 +111,6 @@ def sessionstart(session: pytest.Session) -> None:
                     not any(full_match(dir_entry, f"**/{parent}/*.ipynb") for parent in pathlib.Path(work_dir).parents)
                 ):
                     files.append(dir_entry)
-                    dirs.add(dir_entry.parent)
     session.config.args = [str(dir_) for dir_ in dirs]
     # Clean up possibly existing links and notebooks in work directory from a previous run
     if work_dir != ".":
