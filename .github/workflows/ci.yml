@@ -91,12 +91,12 @@ jobs:
             PACKAGE_VERSION=""
             echo "Installing latest version from ${INDEX}"
           fi
-          python3 -m pip install ${INDEX_FLAGS} ${PACKAGE_NAME}[docs,lint,notebooks,tests]${PACKAGE_VERSION}
+          python3 -m pip install ${INDEX_FLAGS} ${PACKAGE_NAME}[docs,lint,notebooks,tests,unit-tests]${PACKAGE_VERSION}
         shell: bash
       - name: Install nbvalx (git clone only)
         if: (inputs || github.event.inputs).index == ''
         run: |
-          python3 -m pip install .[docs,lint,notebooks,tests]
+          python3 -m pip install .[docs,lint,notebooks,tests,unit-tests]
       - name: Clean build files
         run: |
           git clean -xdf

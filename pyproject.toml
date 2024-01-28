@@ -70,7 +70,7 @@ lint = [
     "yamllint"
 ]
 tests = [
-    # not to be confused with unit_tests: this contains requirements to test nbvalx itself, not to use it
+    # not to be confused with unit-tests: this contains requirements to test nbvalx itself, not to use it
     "coverage[toml]",
     "pytest >= 8.0"
 ]
