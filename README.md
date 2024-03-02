@@ -2,7 +2,7 @@
 
 **nbvalx** is a collection of `pytest` utils built on top of `nbval`.
 
-**nbvalx** is currently developed and maintained at [Università Cattolica del Sacro Cuore](https://www.unicatt.it/) by [Dr. Francesco Ballarin](https://www.francescoballarin.it).
+**nbvalx** is currently developed and maintained at [Università Cattolica del Sacro Cuore](https://www.unicatt.it/) by [Prof. Francesco Ballarin](https://www.francescoballarin.it).
 
 **nbvalx** can be `pip install`ed from [its GitHub repository](https://github.com/nbvalx/nbvalx/) or from [PyPI](https://pypi.org/project/nbvalx/)
 
