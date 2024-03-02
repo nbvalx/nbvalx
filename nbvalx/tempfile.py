@@ -41,8 +41,8 @@ class ParallelSafeContextManagerStub(typing.ContextManager[str]):
 
 
 def ParallelSafeWrapper(  # noqa: N802
-    TempFileContextManager: typing.Type[TempFileContextManagerStub]  # noqa: N803
-) -> typing.Type[ParallelSafeContextManagerStub]:
+    TempFileContextManager: type[TempFileContextManagerStub]  # noqa: N803
+) -> type[ParallelSafeContextManagerStub]:
     """Implement a decorator to wrap a parallel-safe version of tempfile context managers."""
 
     class _(ParallelSafeContextManagerStub):  # noqa: N801
@@ -54,7 +54,7 @@ def ParallelSafeWrapper(  # noqa: N802
             self._comm = comm
             self._args = args
             self._kwargs = kwargs
-            self._temp_obj: typing.Optional[TempFileContextManagerStub] = None
+            self._temp_obj: TempFileContextManagerStub | None = None
 
         @property
         def name(self) -> str:
@@ -75,9 +75,9 @@ def ParallelSafeWrapper(  # noqa: N802
             return self.name
 
         def __exit__(
-            self, exception_type: typing.Optional[typing.Type[BaseException]],
-            exception_value: typing.Optional[BaseException],
-            traceback: typing.Optional[types.TracebackType]
+            self, exception_type: type[BaseException] | None,
+            exception_value: BaseException | None,
+            traceback: types.TracebackType | None
         ) -> None:
             """Exit the context on rank zero."""
             self._comm.Barrier()

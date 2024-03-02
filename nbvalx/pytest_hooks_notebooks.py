@@ -150,7 +150,7 @@ def sessionstart(session: pytest.Session) -> None:
             nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
         # Determine if the run_if extension is used
         run_if_loaded = False
-        allowed_tags: typing.Dict[str, typing.Union[typing.List[bool], typing.List[int], typing.List[str]]] = {}
+        allowed_tags: dict[str, list[bool] | list[int] | list[str]] = {}
         for cell in nb.cells:
             if cell.cell_type == "code":
                 if cell.source.startswith("%load_ext nbvalx"):
@@ -637,7 +637,7 @@ class IPyNbFile(nbval.plugin.IPyNbFile):  # type: ignore[misc,no-any-unimported]
         super().teardown()
 
 
-def collect_file(file_path: pathlib.Path, parent: pytest.Collector) -> typing.Optional[IPyNbFile]:
+def collect_file(file_path: pathlib.Path, parent: pytest.Collector) -> IPyNbFile | None:
     """Collect IPython notebooks using the custom pytest nbval collector."""
     ipynb_action = parent.config.option.ipynb_action
     work_dir = parent.config.option.work_dir

@@ -6,7 +6,6 @@
 """Unit test for the nbvalx.tempfile module."""
 
 import os
-import typing
 
 import mpi4py.MPI
 import pytest
@@ -16,7 +15,7 @@ import nbvalx.tempfile
 
 @pytest.mark.parametrize("TemporaryPath", [nbvalx.tempfile.TemporaryFile, nbvalx.tempfile.TemporaryDirectory])
 def test_tempfile_name(
-    TemporaryPath: typing.Type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
+    TemporaryPath: type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
 ) -> None:
     """Unit test to check that all ranks see a path of the same name."""
     comm = mpi4py.MPI.COMM_WORLD
@@ -32,7 +31,7 @@ def test_tempfile_name(
 
 @pytest.mark.parametrize("TemporaryPath", [nbvalx.tempfile.TemporaryFile, nbvalx.tempfile.TemporaryDirectory])
 def test_tempfile_context_manager(
-    TemporaryPath: typing.Type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
+    TemporaryPath: type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
 ) -> None:
     """Unit test to check that context manager returns a string with the path."""
     comm = mpi4py.MPI.COMM_WORLD
@@ -43,7 +42,7 @@ def test_tempfile_context_manager(
 
 @pytest.mark.parametrize("TemporaryPath", [nbvalx.tempfile.TemporaryFile, nbvalx.tempfile.TemporaryDirectory])
 def test_tempfile_cleanup_on_success(
-    TemporaryPath: typing.Type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
+    TemporaryPath: type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
 ) -> None:
     """Unit test to check that temporary path gets cleaned up after successful execution."""
     comm = mpi4py.MPI.COMM_WORLD
@@ -54,7 +53,7 @@ def test_tempfile_cleanup_on_success(
 
 @pytest.mark.parametrize("TemporaryPath", [nbvalx.tempfile.TemporaryFile, nbvalx.tempfile.TemporaryDirectory])
 def test_tempfile_cleanup_on_error(
-    TemporaryPath: typing.Type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
+    TemporaryPath: type[nbvalx.tempfile.ParallelSafeContextManagerStub]  # noqa: N803
 ) -> None:
     """Unit test to check that temporary path get cleaned up after an error too."""
     comm = mpi4py.MPI.COMM_WORLD

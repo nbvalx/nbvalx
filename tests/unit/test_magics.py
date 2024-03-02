@@ -17,7 +17,7 @@ class MockMagicsManager:
     """A mock IPython magics manager."""
 
     def __init__(self) -> None:
-        self.magics: typing.Dict[str, typing.Dict[str, typing.Callable[[typing.Any], typing.Any]]] = {
+        self.magics: dict[str, dict[str, typing.Callable[[typing.Any], typing.Any]]] = {
             "line": dict(),
             "cell": dict()
         }
@@ -36,8 +36,8 @@ class MockIPythonShell:
 
     def __init__(self) -> None:
         self.magics_manager = MockMagicsManager()
-        self.custom_exc_manager: typing.Dict[
-            typing.Tuple[typing.Type[BaseException]], typing.Callable[[typing.Any], typing.Any]] = dict()
+        self.custom_exc_manager: dict[
+            tuple[type[BaseException]], typing.Callable[[typing.Any], typing.Any]] = dict()
         self.cell = ""
 
     def register_magic_function(
@@ -47,7 +47,7 @@ class MockIPythonShell:
         self.magics_manager.magics[magic_kind][magic_name] = func
 
     def set_custom_exc(
-        self, exc_tuple: typing.Tuple[typing.Type[BaseException]], handler: typing.Callable[[typing.Any], typing.Any]
+        self, exc_tuple: tuple[type[BaseException]], handler: typing.Callable[[typing.Any], typing.Any]
     ) -> None:
         """Update custom exception handler manager."""
         self.custom_exc_manager[exc_tuple] = handler
@@ -91,7 +91,7 @@ def test_load_extension(mock_ipython: MockIPythonShell) -> None:
 
 @pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
 def test_register_run_if_allowed_tags_single(
-    mock_ipython: MockIPythonShell, tag_values: typing.List[typing.Union[bool, int, str]]
+    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
 ) -> None:
     """Check registration of a single set of allowed tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -103,8 +103,8 @@ def test_register_run_if_allowed_tags_single(
 @pytest.mark.parametrize("tag1_values", [[True, False], [1, 2], ["a", "b"]])
 @pytest.mark.parametrize("tag2_values", [[True, False], [3, 4], ["c", "d"]])
 def test_register_run_if_allowed_tags_multiple(
-    mock_ipython: MockIPythonShell, tag1_values: typing.List[typing.Union[bool, int, str]],
-    tag2_values: typing.List[typing.Union[bool, int, str]]
+    mock_ipython: MockIPythonShell, tag1_values: list[bool | int | str],
+    tag2_values: list[bool | int | str]
 ) -> None:
     """Check registration of multiple sets allowed tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -116,7 +116,7 @@ def test_register_run_if_allowed_tags_multiple(
 
 @pytest.mark.parametrize("tag_values", [["a", "b"]])
 def test_register_run_if_allowed_tags_without_quotes(
-    mock_ipython: MockIPythonShell, tag_values: typing.List[str]
+    mock_ipython: MockIPythonShell, tag_values: list[str]
 ) -> None:
     """Check registration of allowed tags of type string not enclosed within quotes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -129,7 +129,7 @@ def test_register_run_if_allowed_tags_without_quotes(
 
 @pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
 def test_register_run_if_current_tags_single(
-    mock_ipython: MockIPythonShell, tag_values: typing.List[typing.Union[bool, int, str]]
+    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
 ) -> None:
     """Check registration of a single set of current tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -142,8 +142,8 @@ def test_register_run_if_current_tags_single(
 @pytest.mark.parametrize("tag1_values", [[True, False], [1, 2], ["a", "b"]])
 @pytest.mark.parametrize("tag2_values", [[True, False], [3, 4], ["c", "d"]])
 def test_register_run_if_current_tags_multiple(
-    mock_ipython: MockIPythonShell, tag1_values: typing.List[typing.Union[bool, int, str]],
-    tag2_values: typing.List[typing.Union[bool, int, str]]
+    mock_ipython: MockIPythonShell, tag1_values: list[bool | int | str],
+    tag2_values: list[bool | int | str]
 ) -> None:
     """Check registration of multiple sets of current tags."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -157,7 +157,7 @@ def test_register_run_if_current_tags_multiple(
 
 @pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
 def test_register_run_if_current_tags_without_allowed_tags(
-    mock_ipython: MockIPythonShell, tag_values: typing.List[typing.Union[bool, int, str]]
+    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
 ) -> None:
     """Check registration of current tag raises when allowed tags have not been set."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -176,7 +176,7 @@ def test_register_run_if_current_tags_without_allowed_tags(
 )
 def test_run_if_single_condition(
     mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
-    tag_values: typing.List[typing.Union[bool, int, str]], tag_condition: str
+    tag_values: list[bool | int | str], tag_condition: str
 ) -> None:
     """Check running a cell with a condition formed by a single statement."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -197,7 +197,7 @@ def test_run_if_single_condition(
 )
 def test_run_if_single_condition_with_line_breaks(
     mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
-    tag_values: typing.List[typing.Union[bool, int, str]], tag_condition: str
+    tag_values: list[bool | int | str], tag_condition: str
 ) -> None:
     """Check running a cell with a condition formed by a single statement and with line breaks."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -218,7 +218,7 @@ def test_run_if_single_condition_with_line_breaks(
 )
 def test_run_if_multiple_conditions(
     mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
-    tag_values: typing.List[typing.Union[bool, int, str]], tag_condition: str
+    tag_values: list[bool | int | str], tag_condition: str
 ) -> None:
     """Check running a cell with a condition formed by multiple statements."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -239,7 +239,7 @@ def test_run_if_multiple_conditions(
 )
 def test_run_if_multiple_conditions_with_line_breaks(
     mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
-    tag_values: typing.List[typing.Union[bool, int, str]], tag_condition1: str, tag_condition2: str
+    tag_values: list[bool | int | str], tag_condition1: str, tag_condition2: str
 ) -> None:
     """Check running a cell with a condition formed by multiple statements and line breaks."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -260,7 +260,7 @@ def test_run_if_multiple_conditions_with_line_breaks(
 )
 def test_run_if_single_condition_false(
     mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
-    tag_values: typing.List[typing.Union[bool, int, str]], tag_condition: str
+    tag_values: list[bool | int | str], tag_condition: str
 ) -> None:
     """Check running a cell with a condition which evaluates to False."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
@@ -274,7 +274,7 @@ def test_run_if_single_condition_false(
 
 @pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
 def test_unload_extension(
-    mock_ipython: MockIPythonShell, tag_values: typing.List[typing.Union[bool, int, str]]
+    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
 ) -> None:
     """Check deletion of extension attributes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]

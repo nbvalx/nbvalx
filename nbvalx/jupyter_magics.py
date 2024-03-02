@@ -17,8 +17,8 @@ class IPythonExtension:
 
     loaded = False
     allowed_tags: typing.ClassVar[
-        typing.Dict[str, typing.Union[typing.List[bool], typing.List[int], typing.List[str]]]] = {}
-    current_tags: typing.ClassVar[typing.Dict[str, typing.Union[bool, int, str]]] = {}
+        dict[str, list[bool] | list[int] | list[str]]] = {}
+    current_tags: typing.ClassVar[dict[str, bool | int | str]] = {}
 
     class SuppressTracebackMockError(Exception):
         """Custom exception type used in run_if magic to suppress redundant traceback."""
@@ -26,7 +26,7 @@ class IPythonExtension:
         pass
 
     @classmethod
-    def _split_magic_from_code(cls, line: str, cell: str) -> typing.Tuple[str, str]:
+    def _split_magic_from_code(cls, line: str, cell: str) -> tuple[str, str]:
         """Split the input provided by IPython into a part related to the magic and a part containing the code."""
         line = line.strip()
         cell_lines = cell.splitlines()
@@ -39,7 +39,7 @@ class IPythonExtension:
         return magic, code
 
     @classmethod
-    def _convert_to_tags_value_types(cls, value: str) -> typing.Union[bool, int, str]:
+    def _convert_to_tags_value_types(cls, value: str) -> bool | int | str:
         """Convert a string to a boolean or an integer, if possible."""
         if value == "True":
             return True
@@ -70,8 +70,7 @@ class IPythonExtension:
 
     @classmethod
     def register_run_if_allowed_tags(
-        cls, line: str, cell: str, allowed_tags_dict: typing.Optional[
-            typing.Dict[str, typing.Union[typing.List[bool], typing.List[int], typing.List[str]]]] = None
+        cls, line: str, cell: str, allowed_tags_dict: dict[str, list[bool] | list[int] | list[str]] | None = None
     ) -> None:
         """Register allowed tags."""
         if allowed_tags_dict is None:
@@ -89,9 +88,8 @@ class IPythonExtension:
 
     @classmethod
     def register_run_if_current_tags(
-        cls, line: str, cell: str, allowed_tags_dict: typing.Optional[
-            typing.Dict[str, typing.Union[typing.List[bool], typing.List[int], typing.List[str]]]] = None,
-        current_tags_dict: typing.Optional[typing.Dict[str, typing.Union[bool, int, str]]] = None
+        cls, line: str, cell: str, allowed_tags_dict: dict[str, list[bool] | list[int] | list[str]] | None = None,
+        current_tags_dict: dict[str, bool | int | str] | None = None
     ) -> None:
         """Register current tags."""
         if allowed_tags_dict is None:
@@ -111,9 +109,8 @@ class IPythonExtension:
 
     @classmethod
     def run_if(
-        cls, line: str, cell: str, current_tags_dict: typing.Optional[
-            typing.Dict[str, typing.Union[bool, int, str]]] = None,
-        runner: typing.Optional[typing.Callable[[str], None]] = None
+        cls, line: str, cell: str, current_tags_dict: dict[str, bool | int | str] | None = None,
+        runner: typing.Callable[[str], None] | None = None
     ) -> None:
         """Run cell if the condition provided in the magic argument evaluates to True."""
         if current_tags_dict is None:
@@ -126,8 +123,8 @@ class IPythonExtension:
 
     @classmethod
     def suppress_traceback_handler(
-        cls, ipython: IPython.core.interactiveshell.InteractiveShell, etype: typing.Type[BaseException],
-        value: BaseException, tb: types.TracebackType, tb_offset: typing.Optional[int] = None
+        cls, ipython: IPython.core.interactiveshell.InteractiveShell, etype: type[BaseException],
+        value: BaseException, tb: types.TracebackType, tb_offset: int | None = None
     ) -> None:  # pragma: no cover
         """Use a custom handler in load_ipython_extension to suppress redundant traceback."""
         pass
