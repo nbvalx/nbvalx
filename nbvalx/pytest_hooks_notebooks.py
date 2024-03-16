@@ -93,7 +93,8 @@ def sessionstart(session: pytest.Session) -> None:
     files = list()
     dirs = list()
     for arg in session.config.args:
-        dir_or_file, _ = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
+        collection_argument = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
+        dir_or_file = collection_argument.path
         if dir_or_file.is_dir():
             dir_or_file_candidates = [dir_entry for dir_entry in dir_or_file.rglob("*")]
             dirs.append(dir_or_file)
