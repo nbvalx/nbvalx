@@ -45,6 +45,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Manually install pytest of the v8.0.* series
+        run: |
+          python3 -m pip install "pytest < 8.1"
       - name: Wait for package index availability (PyPI and TestPyPI only)
         if: (inputs || github.event.inputs).index != '' && (inputs || github.event.inputs).index_version != ''
         run: |
