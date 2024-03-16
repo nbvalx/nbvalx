@@ -48,14 +48,14 @@ funding = "https://github.com/sponsors/francesco-ballarin"
 unit-tests = [
     # this contains optional dependencies that users should have in order to use nbvalx/pytest_hooks_unit_tests.py
     "mpi4py",
-    "pytest >= 8.0"
+    "pytest >= 8.1"
 ]
 notebooks = [
     # this contains optional dependencies that users should have in order to use nbvalx/pytest_hooks_notebooks.py
     "ipyparallel",
     "mpi4py",
     "nbval",
-    "pytest >= 8.0"
+    "pytest >= 8.1"
 ]
 docs = [
     "sphinx"
@@ -70,7 +70,7 @@ lint = [
 tests = [
     # not to be confused with unit-tests: this contains requirements to test nbvalx itself, not to use it
     "coverage[toml]",
-    "pytest >= 8.0"
+    "pytest >= 8.1"
 ]
 
 [tool.isort]
