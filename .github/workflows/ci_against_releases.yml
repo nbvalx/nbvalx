@@ -68,12 +68,12 @@ jobs:
       index_version: 0.3.1
 
   test_0_3_2_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2.post0
     with:
       ref: v0.3.2
 
   test_0_3_2_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2.post0
     with:
       ref: v0.3.2
       index: PyPI
