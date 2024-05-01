@@ -250,7 +250,8 @@ def sessionstart(session: pytest.Session) -> None:
                                         magic_line_index_end - 1, magic_line_index_begin - 1, - 1):
                                     lines.remove(lines[magic_line_index])
                                 code = "\n".join(lines)
-                                nbvalx.jupyter_magics.IPythonExtension.run_if(magic, code, tag_dict, store_and_append)
+                                nbvalx.jupyter_magics.IPythonExtension.run_if(
+                                    magic, code, tag_dict, store_and_append)  # type: ignore[arg-type]
                             else:
                                 cells_tag.append(cell_tag)
                         else:
@@ -274,7 +275,8 @@ def sessionstart(session: pytest.Session) -> None:
                                         comment_line_index_end - 1, comment_line_index_begin - 1, - 1):
                                     lines.remove(lines[comment_line_index])
                                 text = "\n".join(lines)
-                                nbvalx.jupyter_magics.IPythonExtension.run_if(comment, text, tag_dict, store_and_append)
+                                nbvalx.jupyter_magics.IPythonExtension.run_if(
+                                    comment, text, tag_dict, store_and_append)  # type: ignore[arg-type]
                             else:
                                 cells_tag.append(cell_tag)
                         else:

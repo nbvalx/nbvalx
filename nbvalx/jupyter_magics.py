@@ -134,12 +134,13 @@ def load_ipython_extension(
     ipython: IPython.core.interactiveshell.InteractiveShell
 ) -> None:
     """Register magics defined in this module when the extension loads."""
-    ipython.register_magic_function(  # type: ignore[no-untyped-call]
-        IPythonExtension.register_run_if_allowed_tags, "cell", "register_run_if_allowed_tags")
-    ipython.register_magic_function(  # type: ignore[no-untyped-call]
-        IPythonExtension.register_run_if_current_tags, "cell", "register_run_if_current_tags",)
-    ipython.register_magic_function(  # type: ignore[no-untyped-call]
-        IPythonExtension.run_if, "cell", "run_if")
+    ipython.register_magic_function(
+        IPythonExtension.register_run_if_allowed_tags,  # type: ignore[arg-type]
+        "cell", "register_run_if_allowed_tags")
+    ipython.register_magic_function(
+        IPythonExtension.register_run_if_current_tags,  # type: ignore[arg-type]
+        "cell", "register_run_if_current_tags")
+    ipython.register_magic_function(IPythonExtension.run_if, "cell", "run_if")  # type: ignore[arg-type]
     ipython.set_custom_exc(  # type: ignore[no-untyped-call]
         (IPythonExtension.SuppressTracebackMockError, ), IPythonExtension.suppress_traceback_handler)
     IPythonExtension.loaded = True
