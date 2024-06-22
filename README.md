@@ -92,7 +92,7 @@ For clarity, the hooks implemented in [`nbvalx/pytest_unit_tests.py`](https://gi
 
 The hooks are typically employed to obtain a `MPI`-parallel safe execution of python unit tests by calling garbage collection and putting a `MPI` barrier after each test.
 
-## Custom pytest hooks for unit tests
+## MPI parallel-safe temporary files and directories
 The file [`nbvalx/tempfile.py`](https://github.com/nbvalx/nbvalx/blob/main/nbvalx/tempfile.py) contains `MPI` parallel-safe context managers to create temporary files and directories. Similarly to the `tempfile` module in the standard library, the following context managers are provided:
 * `nbvalx.tempfile.TemporaryDirectory`,
 * `nbvalx.tempfile.TemporaryFile`.
