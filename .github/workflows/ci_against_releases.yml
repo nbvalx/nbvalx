@@ -8,72 +8,72 @@ on:
 
 jobs:
   test_0_1_0_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.1.0.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.1.0.post3
     with:
       ref: v0.1.0
 
   test_0_1_0_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.1.0.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.1.0.post3
     with:
       ref: v0.1.0
       index: PyPI
       index_version: 0.1.0
 
   test_0_2_0_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.0.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.0.post3
     with:
       ref: v0.2.0
 
   test_0_2_0_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.0.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.0.post3
     with:
       ref: v0.2.0
       index: PyPI
       index_version: 0.2.0
 
   test_0_2_1_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.1.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.1.post3
     with:
       ref: v0.2.1
 
   test_0_2_1_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.1.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.2.1.post3
     with:
       ref: v0.2.1
       index: PyPI
       index_version: 0.2.1
 
   test_0_3_0_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.0.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.0.post3
     with:
       ref: v0.3.0
 
   test_0_3_0_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.0.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.0.post3
     with:
       ref: v0.3.0
       index: PyPI
       index_version: 0.3.0
 
   test_0_3_1_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.1.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.1.post3
     with:
       ref: v0.3.1
 
   test_0_3_1_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.1.post2
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.1.post3
     with:
       ref: v0.3.1
       index: PyPI
       index_version: 0.3.1
 
   test_0_3_2_installing_from_github:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2.post1
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2.post2
     with:
       ref: v0.3.2
 
   test_0_3_2_installing_from_pypi:
-    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2.post1
+    uses: nbvalx/nbvalx/.github/workflows/ci.yml@v0.3.2.post2
     with:
       ref: v0.3.2
       index: PyPI
