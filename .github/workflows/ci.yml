@@ -176,6 +176,7 @@ jobs:
           name: "notebooks-logs-${{ matrix.python-version }}"
           path: |
             **/.ipynb_pytest/**/*.log*
+          include-hidden-files: true
 
   warn:
     runs-on: ubuntu-latest
