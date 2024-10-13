@@ -61,7 +61,7 @@ jobs:
           COUNTER=0
           INDEX_VERSION_FOUND=0
           while [[ ${INDEX_VERSION_FOUND} -ne 1 ]]; do
-            pip install --no-cache-dir --index-url ${INDEX_URL}/simple/ ${PACKAGE_NAME}==0 2> all_${PACKAGE_NAME}_versions || true
+            python3 -m pip install --no-cache-dir --index-url ${INDEX_URL}/simple/ ${PACKAGE_NAME}==0 2> all_${PACKAGE_NAME}_versions || true
             if grep -q ${INDEX_VERSION} all_${PACKAGE_NAME}_versions; then
               INDEX_VERSION_FOUND=1
             fi
