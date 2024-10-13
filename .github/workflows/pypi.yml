@@ -54,7 +54,7 @@ jobs:
       - name: Determine distribution version
         id: determine_version
         run: |
-          python3 -m pip install wheel-filename
+          python3 -m pip install --break-system-packages wheel-filename
           WHEELS=($(find dist -type f -name "*.whl"))
           if [[ "${#WHEELS[@]}" == "1" ]]; then
             VERSION=$(python3 -c "import wheel_filename; print(wheel_filename.parse_wheel_filename('${WHEELS[0]}').version)")

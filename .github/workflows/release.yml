@@ -23,7 +23,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Check consistency with current development version
         run: |
-          python3 -m pip install toml
+          python3 -m pip install --break-system-packages toml
           DEV_VERSION=$(python3 -c 'import toml; print(toml.load("pyproject.toml")["project"]["version"])')
           VERSION=${{ github.event.inputs.version }}
           if [[ "${DEV_VERSION/dev/}" != "${VERSION}" ]]; then
