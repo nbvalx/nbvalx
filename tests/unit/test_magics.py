@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2024 by the nbvalx authors
+# Copyright (C) 2022-2025 by the nbvalx authors
 #
 # This file is part of nbvalx.
 #

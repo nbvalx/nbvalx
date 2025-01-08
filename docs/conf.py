@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2024 by the nbvalx authors
+# Copyright (C) 2022-2025 by the nbvalx authors
 #
 # This file is part of nbvalx.
 #
@@ -7,7 +7,7 @@
 
 # Project information
 project = "nbvalx"
-copyright = "2022-2024, the nbvalx authors"
+copyright = "2022-2025, the nbvalx authors"
 author = "Francesco Ballarin"
 
 # General configuration
