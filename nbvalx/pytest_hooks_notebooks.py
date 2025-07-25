@@ -101,9 +101,11 @@ def sessionstart(session: pytest.Session) -> None:
             dir_or_file_candidates = [dir_entry for dir_entry in dir_or_file.rglob("*")]
             dirs.append(dir_or_file)
         else:  # pragma: no cover
-            assert full_match(dir_or_file, "**/*.ipynb")
-            dir_or_file_candidates = [dir_or_file]
-            dirs.append(dir_or_file.parent)
+            if full_match(dir_or_file, "**/*.ipynb"):
+                dir_or_file_candidates = [dir_or_file]
+                dirs.append(dir_or_file.parent)
+            else:
+                dir_or_file_candidates = []
         for dir_entry in dir_or_file_candidates:
             if dir_entry.is_file():
                 if (
