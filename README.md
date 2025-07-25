@@ -59,7 +59,7 @@ A similar statement can be used as an HTML comment in markdown cells
 <!-- keep_if string_tag == "value1" -->
 This is a markdown cell which explains a code cell that will be run only if string_tag == "value1".
 ```
-Markdown cells will be stripped only when running through `pytest` with the `--tag-collapse` option, see below.
+Markdown cells will be stripped only when running through `pytest` with the `--collapse` option, see below.
 
 ### Cell magics for parametrized python variables
 
