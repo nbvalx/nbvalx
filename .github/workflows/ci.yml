@@ -127,9 +127,9 @@ jobs:
         run: |
           NO_TESTS_COLLECTED=5
           COVERAGE_FILE=.coverage_notebooks_serial_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          COVERAGE_FILE=.coverage_notebooks_serial_create_with_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --tag-collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          COVERAGE_FILE=.coverage_notebooks_serial_create_with_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --collapse tests/notebooks || (($?==$NO_TESTS_COLLECTED))
           COVERAGE_FILE=.coverage_notebooks_parallel_create_without_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
-          COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --tag-collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
+          COVERAGE_FILE=.coverage_notebooks_parallel_create_with_collapse python3 -m coverage run --source=nbvalx  -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --ipynb-action=create-notebooks --collapse --np=2 tests/notebooks || (($?==$NO_TESTS_COLLECTED))
         shell: bash
       - name: Run ruff on notebooks test files
         run: |
@@ -149,7 +149,7 @@ jobs:
           COVERAGE_FILE=.coverage_notebooks_serial_without_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" tests/notebooks
       - name: Run notebooks tests (serial, with collapse)
         run: |
-          COVERAGE_FILE=.coverage_notebooks_serial_with_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --tag-collapse tests/notebooks
+          COVERAGE_FILE=.coverage_notebooks_serial_with_collapse python3 -m coverage run --source=nbvalx -m pytest --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" --collapse tests/notebooks
       - name: Run notebooks tests (parallel)
         run: |
           COVERAGE_FILE=.coverage_notebooks_parallel python3 -m coverage run --source=nbvalx -m pytest --np=2 --coverage-run-allow --link-data-in-work-dir="**/coverage_mock_module.py" tests/notebooks

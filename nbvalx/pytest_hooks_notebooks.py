@@ -10,6 +10,7 @@ import copy
 import fnmatch
 import glob
 import itertools
+import json
 import os
 import pathlib
 import re
@@ -26,7 +27,7 @@ import nbvalx.jupyter_magics
 
 
 def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) -> None:
-    """Add options to set the number of processes and tag actions."""
+    """Add options to set the number of processes and tag/parameters actions."""
     # Number of processors
     parser.addoption("--np", type=int, default=1, help="Number of MPI processes to use")
     # Coverage source
@@ -36,9 +37,10 @@ def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) 
             "Allow to start pytest under coverage. This should never be done, except while determining the coverage "
             "of nbvalx notebooks hooks themselves."))
     # Action to carry out on notebooks
-    parser.addoption("--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags")
-    # Tag collapse
-    parser.addoption("--tag-collapse", action="store_true", help="Collapse notebook to current tags")
+    parser.addoption(
+        "--ipynb-action", type=str, default="collect-notebooks", help="Action on notebooks with tags or parameters")
+    # Collapse
+    parser.addoption("--collapse", action="store_true", help="Collapse notebook to current tags and parameters")
     # Work directory
     parser.addoption("--work-dir", type=str, default="", help="Work directory in which to run the tests")
     parser.addoption(
@@ -48,7 +50,7 @@ def addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) 
 
 
 def sessionstart(session: pytest.Session) -> None:
-    """Parameterize jupyter notebooks based on available tags."""
+    """Parameterize jupyter notebooks based on available tags and parameters."""
     # Verify that nbval is not explicitly provided on the command line
     nbval = session.config.option.nbval
     assert not nbval, "--nbval is implicitly enabled, do not provide it on the command line"
@@ -70,19 +72,19 @@ def sessionstart(session: pytest.Session) -> None:
     # Verify action options
     ipynb_action = session.config.option.ipynb_action
     assert ipynb_action in ("create-notebooks", "collect-notebooks")
-    # Verify tag options
-    tag_collapse = session.config.option.tag_collapse
-    assert tag_collapse in (True, False)
+    # Verify collapse options
+    collapse = session.config.option.collapse
+    assert collapse in (True, False)
     # Verify work directory options
     if session.config.option.work_dir == "":
-        session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{tag_collapse}"
+        session.config.option.work_dir = f".ipynb_pytest/np_{np}/collapse_{collapse}"
     work_dir = session.config.option.work_dir
     link_data_in_work_dir = session.config.option.link_data_in_work_dir
     assert not work_dir.startswith(os.sep), "Please use a relative path while specifying work directory"
     if np > 1 or ipynb_action != "create-notebooks":
         assert work_dir != ".", (
             "Please use a subdirectory as work directory to prevent losing the original notebooks")
-    # Verify if keyword matching (-k option) is enabled, as it will be used to match tags
+    # Verify if keyword matching (-k option) is enabled, as it will be used to match tags or parameters
     keyword = session.config.option.keyword
     # pathlib.PurePath.full_match is only available in python 3.13+. In the meantime,
     # implement the comparison using fnmatch
@@ -151,20 +153,27 @@ def sessionstart(session: pytest.Session) -> None:
         # Read in notebook
         with open(file_) as f:
             nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
-        # Determine if the run_if extension is used
-        run_if_loaded = False
+        # Determine if tags or parameters were used
+        load_ext_present = False
         allowed_tags: dict[str, list[bool] | list[int] | list[str]] = {}
+        allowed_parameters: dict[str, list[bool] | list[int] | list[str]] = {}
         for cell in nb.cells:
             if cell.cell_type == "code":
                 if cell.source.startswith("%load_ext nbvalx"):
-                    run_if_loaded = True
+                    load_ext_present = True
                     assert len(cell.source.splitlines()) == 1, "Use a standalone cell for %load_ext nbvalx"
                 elif cell.source.startswith("%%register_run_if_allowed_tags"):
-                    assert run_if_loaded
+                    assert load_ext_present
                     lines = cell.source.splitlines()
                     assert lines[0] == "%%register_run_if_allowed_tags"
                     nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
                         "", "\n".join(lines[1:]), allowed_tags)
+                elif cell.source.startswith("%%register_allowed_parameters"):
+                    assert load_ext_present
+                    lines = cell.source.splitlines()
+                    assert lines[0] == "%%register_allowed_parameters"
+                    nbvalx.jupyter_magics.IPythonExtension.register_allowed_parameters(
+                        "", "\n".join(lines[1:]), allowed_parameters)
                 elif cell.source.startswith("__notebook_basename__"):
                     lines = cell.source.splitlines()
                     assert len(lines) == 2, (
@@ -185,57 +194,100 @@ def sessionstart(session: pytest.Session) -> None:
                     _, hardcoded_notebook_path = lines[1].split("=")
                     hardcoded_notebook_path = hardcoded_notebook_path.strip()
                     assert hardcoded_notebook_path in ('""', "''")
-        # Determine all possible tag combinations
-        allowed_tags_names = list(allowed_tags.keys())
-        if len(allowed_tags_names) > 0:
-            allowed_tags_values_product = list(itertools.product(*allowed_tags.values()))
-            allowed_tags_dict_product = [
-                {name: value for (name, value) in zip(allowed_tags_names, values)}
-                for values in allowed_tags_values_product]
-            allowed_tags_keyword = [
-                ",".join(f"{name}={value}" for (name, value) in zip(allowed_tags_names, values))
-                for values in allowed_tags_values_product]
+        # Condense tags and parameters in a common dictionary of the entries give to magic commands,
+        # where the key is a tuple formed by either "tag" or "parameter" and the tag/parameter name
+        allowed_magic_entries: dict[tuple[str, str], list[bool] | list[int] | list[str]] = {}
+        for (magic_entry_type, allowed_magic_entries_for_entry_type) in (
+            ("tag", allowed_tags), ("parameter", allowed_parameters)
+        ):
+            for magic_entry_name, magic_entry_values in allowed_magic_entries_for_entry_type.items():
+                allowed_magic_entries[(magic_entry_type, magic_entry_name)] = magic_entry_values
+        del allowed_tags
+        del allowed_parameters
+        # Determine all possible magic entries combinations
+        allowed_magic_entries_keys = list(allowed_magic_entries.keys())
+        if len(allowed_magic_entries_keys) > 0:
+            allowed_magic_entries_values_product = list(itertools.product(*allowed_magic_entries.values()))
+            allowed_magic_entries_dict_product = [
+                {
+                    magic_entry_name: magic_entry_value
+                    for ((magic_entry_type, magic_entry_name), magic_entry_value) in zip(
+                        allowed_magic_entries_keys, magic_entry_values
+                    )
+                } for magic_entry_values in allowed_magic_entries_values_product
+            ]
+            allowed_magic_entries_keyword = [
+                ",".join(
+                    f"{magic_entry_name}={magic_entry_value}"
+                    for ((magic_entry_type, magic_entry_name), magic_entry_value) in zip(
+                        allowed_magic_entries_keys, magic_entry_values)
+                    )
+                for magic_entry_values in allowed_magic_entries_values_product
+            ]
         else:
-            allowed_tags_values_product = []
-            allowed_tags_dict_product = []
-            allowed_tags_keyword = []
-        assert len(allowed_tags_values_product) == len(allowed_tags_keyword)
-        # Create temporary copies for each tag to be processed
-        nb_tags = dict()
-        if run_if_loaded and len(allowed_tags_keyword) > 0:
-            # Process restricted tags
-            for (tag_values, tag_dict, tag_keyword) in zip(
-                allowed_tags_values_product, allowed_tags_dict_product, allowed_tags_keyword
+            allowed_magic_entries_values_product = []
+            allowed_magic_entries_dict_product = []
+            allowed_magic_entries_keyword = []
+        assert len(allowed_magic_entries_values_product) == len(allowed_magic_entries_keyword)
+        # Create temporary copies for each magic entry to be processed
+        nb_copies = dict()
+        if load_ext_present and len(allowed_magic_entries_keyword) > 0:
+            # Process restricted magic entries
+            for (magic_entry_values, magic_entry_dict, magic_entry_keyword) in zip(  # type: ignore[assignment]
+                allowed_magic_entries_values_product, allowed_magic_entries_dict_product,
+                allowed_magic_entries_keyword
             ):
-                # Restrict tags to match keyword
+                # Restrict magic entries to match keyword
                 if keyword != "":  # pragma: no cover
-                    if keyword not in allowed_tags_keyword:
+                    if not any(keyword in magic_entry_keword for magic_entry_keword in allowed_magic_entries_keyword):
                         continue
                 # Determine what will be the new notebook path
-                nb_tag_path = file_.parent / work_dir / file_.name.replace(".ipynb", f"[{tag_keyword}].ipynb")
-                # Replace tag and, if collapsing notebooks, strip cells with other tags
-                cells_tag = list()
+                nb_copy_path = file_.parent / work_dir / file_.name.replace(".ipynb", f"[{magic_entry_keyword}].ipynb")
+                # Replace magic entry and, if collapsing notebooks, strip cells with values different from the current
+                cells_magic_entry = list()
                 for cell in nb.cells:
-                    cell_tag = copy.deepcopy(cell)
+                    cell_magic_entry = copy.deepcopy(cell)
 
                     def store_and_append(source: str) -> None:
                         """Store source in the cell and append it to the notebook."""
-                        cell_tag.source = source
-                        cells_tag.append(cell_tag)
+                        cell_magic_entry.source = source
+                        cells_magic_entry.append(cell_magic_entry)
 
                     if cell.cell_type == "code":
-                        if (cell.source.startswith("%load_ext nbvalx")
-                                or cell.source.startswith("%%register_run_if_allowed_tags")):
-                            if not tag_collapse:
-                                cells_tag.append(cell_tag)
+                        if (
+                            cell.source.startswith("%load_ext nbvalx")
+                            or cell.source.startswith("%%register_run_if_allowed_tags")
+                            or cell.source.startswith("%%register_allowed_parameters")
+                        ):
+                            if not collapse:
+                                cells_magic_entry.append(cell_magic_entry)
                         elif cell.source.startswith("%%register_run_if_current_tags"):
-                            if not tag_collapse:
+                            if not collapse:
                                 lines = ["%%register_run_if_current_tags"]
-                                for (tag_name, tag_value) in zip(allowed_tags_names, tag_values):
-                                    lines.append(f"{tag_name} = {tag_value!r}")
+                                for ((magic_entry_type, magic_entry_name), magic_entry_value) in zip(
+                                    allowed_magic_entries_keys, magic_entry_values
+                                ):
+                                    if magic_entry_type == "tag":
+                                        lines.append(f"{magic_entry_name} = {magic_entry_value!r}")
                                 store_and_append("\n".join(lines))
+                        elif cell.source.startswith("%%register_current_parameters"):
+                            if not collapse:
+                                lines = ["%%register_current_parameters"]
+                            else:
+                                lines = []
+                            for ((magic_entry_type, magic_entry_name), magic_entry_value) in zip(
+                                allowed_magic_entries_keys, magic_entry_values
+                            ):
+                                if magic_entry_type == "parameter":
+                                    if isinstance(magic_entry_value, str):
+                                        # Prefer string representation with double quotes, and use
+                                        # json.dumps to handle escaping of inner quotes
+                                        lines.append(f"{magic_entry_name} = {json.dumps(magic_entry_value)}")
+                                    else:
+                                        lines.append(f"{magic_entry_name} = {magic_entry_value!r}")
+                            store_and_append("\n".join(lines))
                         elif "%%run_if" in cell.source:
-                            if tag_collapse:
+                            if collapse:
                                 lines = cell.source.splitlines()
                                 magic_line_index_begin = 0
                                 while not lines[magic_line_index_begin].startswith("%%run_if"):
@@ -253,14 +305,14 @@ def sessionstart(session: pytest.Session) -> None:
                                     lines.remove(lines[magic_line_index])
                                 code = "\n".join(lines)
                                 nbvalx.jupyter_magics.IPythonExtension.run_if(
-                                    magic, code, tag_dict, store_and_append)  # type: ignore[arg-type]
+                                    magic, code, magic_entry_dict, store_and_append)  # type: ignore[arg-type]
                             else:
-                                cells_tag.append(cell_tag)
+                                cells_magic_entry.append(cell_magic_entry)
                         else:
-                            cells_tag.append(cell_tag)
+                            cells_magic_entry.append(cell_magic_entry)
                     elif cell.cell_type == "markdown":
                         if "<!-- keep_if" in cell.source:
-                            if tag_collapse:
+                            if collapse:
                                 lines = cell.source.splitlines()
                                 comment_line_index_begin = 0
                                 while not lines[comment_line_index_begin].startswith("<!--"):
@@ -278,29 +330,29 @@ def sessionstart(session: pytest.Session) -> None:
                                     lines.remove(lines[comment_line_index])
                                 text = "\n".join(lines)
                                 nbvalx.jupyter_magics.IPythonExtension.run_if(
-                                    comment, text, tag_dict, store_and_append)  # type: ignore[arg-type]
+                                    comment, text, magic_entry_dict, store_and_append)  # type: ignore[arg-type]
                             else:
-                                cells_tag.append(cell_tag)
+                                cells_magic_entry.append(cell_magic_entry)
                         else:
-                            cells_tag.append(cell_tag)
+                            cells_magic_entry.append(cell_magic_entry)
                     else:  # pragma: no cover
-                        cells_tag.append(cell_tag)
+                        cells_magic_entry.append(cell_magic_entry)
                 # Attach cells to a copy of the notebook
-                nb_tag = copy.deepcopy(nb)
-                nb_tag.cells = cells_tag
+                nb_copy = copy.deepcopy(nb)
+                nb_copy.cells = cells_magic_entry
                 # Store notebook in dictionary
-                nb_tags[nb_tag_path] = nb_tag
+                nb_copies[nb_copy_path] = nb_copy
         else:
-            # Create a temporary copy only if no keyword is provided, as untagged
-            # notebooks would not match any non null keyword
+            # Create a temporary copy only if no keyword is provided, as notebooks with no magic entries
+            # would not match any non null keyword
             if keyword == "":
                 # Determine what will be the new notebook path
-                nb_tag_path = file_.parent / work_dir / file_.name
+                nb_copy_path = file_.parent / work_dir / file_.name
                 # Store notebook in dictionary
-                nb_tags[nb_tag_path] = nb
+                nb_copies[nb_copy_path] = nb
         # Replace notebook name
-        for (nb_tag_path, nb_tag) in nb_tags.items():
-            for cell in nb_tag.cells:
+        for (nb_copy_path, nb_copy) in nb_copies.items():
+            for cell in nb_copy.cells:
                 if cell.cell_type == "code":
                     if cell.source.startswith("__notebook_basename__"):
                         def wrap_if_long_line(key: str, value: str) -> str:
@@ -316,14 +368,14 @@ def sessionstart(session: pytest.Session) -> None:
                                 ])
 
                         cell.source = "\n".join([
-                            wrap_if_long_line("basename", str(nb_tag_path.name)),
-                            wrap_if_long_line("dirname", str(nb_tag_path.parent))
+                            wrap_if_long_line("basename", str(nb_copy_path.name)),
+                            wrap_if_long_line("dirname", str(nb_copy_path.parent))
                         ])
         # Comment out xfail cells when only asked to create notebooks, so that the user
         # who requested them can run all cells
         if ipynb_action == "create-notebooks" and work_dir != ".":
             xfail_and_skip_next = False
-            for cell in nb_tag.cells:
+            for cell in nb_copy.cells:
                 if cell.cell_type == "code":
                     lines = cell.source.splitlines()
                     quotes = "'''" if '"""' in cell.source else '"""'
@@ -349,7 +401,7 @@ def sessionstart(session: pytest.Session) -> None:
         # * the user who requested notebook creation may not want coverage testing to take place
         # * the additional cell may interfere with linting
         if coverage_source != "" and ipynb_action != "create-notebooks":
-            for (nb_tag_path, nb_tag) in nb_tags.items():
+            for (nb_copy_path, nb_copy) in nb_copies.items():
                 # Add a cell on top to start coverage collection
                 coverage_start_code = f"""import coverage
 
@@ -362,22 +414,22 @@ cov.start()
 """
                 coverage_start_cell = nbformat.v4.new_code_cell(coverage_start_code)  # type: ignore[no-untyped-call]
                 coverage_start_cell.id = "coverage_start"
-                nb_tag.cells.insert(0, coverage_start_cell)
+                nb_copy.cells.insert(0, coverage_start_cell)
                 # Add a cell at the end to stop coverage collection
                 coverage_stop_code = """cov.stop()
 cov.save()
 """
                 coverage_stop_cell = nbformat.v4.new_code_cell(coverage_stop_code)  # type: ignore[no-untyped-call]
                 coverage_stop_cell.id = "coverage_stop"
-                nb_tag.cells.append(coverage_stop_cell)
+                nb_copy.cells.append(coverage_stop_cell)
         # Add live stdout redirection to file when running notebooks through pytest
         # Such redirection is not added when only asked to create notebooks because:
         # * the user who requested notebook creation may not want redirection to take place
         # * the additional cell may interfere with linting
         if ipynb_action != "create-notebooks":
-            for (nb_tag_path, nb_tag) in nb_tags.items():
+            for (nb_copy_path, nb_copy) in nb_copies.items():
                 # Add the live_log magic to every existing cell
-                _add_cell_magic(nb_tag, "%%live_log")
+                _add_cell_magic(nb_copy, "%%live_log")
                 # Add a cell on top to define the live_log magic
                 live_log_magic_code = f'''import sys
 import types
@@ -463,7 +515,7 @@ def live_log(line: str, cell: typing.Optional[str] = None) -> None:
             raise nbvalx.jupyter_magics.IPythonExtension.SuppressTracebackMockError(e)
 
 
-live_log_filename = "{str(nb_tag_path)[:-6]}" + live_log_suffix  # noqa: E501
+live_log_filename = "{str(nb_copy_path)[:-6]}" + live_log_suffix  # noqa: E501
 del live_log_suffix
 open(live_log_filename, "w").close()
 live_log.__file__ = open(live_log_filename, "a", buffering=1)
@@ -475,12 +527,12 @@ IPython.get_ipython().set_custom_exc(
     nbvalx.jupyter_magics.IPythonExtension.suppress_traceback_handler)'''
                 live_log_magic_cell = nbformat.v4.new_code_cell(live_log_magic_code)  # type: ignore[no-untyped-call]
                 live_log_magic_cell.id = "live_log_magic"
-                nb_tag.cells.insert(0, live_log_magic_cell)
+                nb_copy.cells.insert(0, live_log_magic_cell)
         # Add parallel support
         if np > 1:
-            for (nb_tag_path, nb_tag) in nb_tags.items():
+            for (nb_copy_path, nb_copy) in nb_copies.items():
                 # Add the px magic to every existing cell
-                _add_cell_magic(nb_tag, "%%px --no-stream" if ipynb_action != "create-notebooks" else "%%px")
+                _add_cell_magic(nb_copy, "%%px --no-stream" if ipynb_action != "create-notebooks" else "%%px")
                 # Add a cell on top to start a new ipyparallel cluster
                 cluster_start_code = f"""import ipyparallel as ipp
 
@@ -488,17 +540,17 @@ cluster = ipp.Cluster(engines="MPI", profile="mpi", n={np})
 cluster.start_and_connect_sync()"""
                 cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)  # type: ignore[no-untyped-call]
                 cluster_start_cell.id = "cluster_start"
-                nb_tag.cells.insert(0, cluster_start_cell)
+                nb_copy.cells.insert(0, cluster_start_cell)
                 # Add a cell at the end to stop the ipyparallel cluster
                 cluster_stop_code = """cluster.stop_cluster_sync()"""
                 cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)  # type: ignore[no-untyped-call]
                 cluster_stop_cell.id = "cluster_stop"
-                nb_tag.cells.append(cluster_stop_cell)
+                nb_copy.cells.append(cluster_stop_cell)
         # Write modified notebooks to the work directory
-        for (nb_tag_path, nb_tag) in nb_tags.items():
-            nb_tag_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(nb_tag_path, "w") as f:
-                nbformat.write(nb_tag, f)  # type: ignore[no-untyped-call]
+        for (nb_copy_path, nb_copy) in nb_copies.items():
+            nb_copy_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(nb_copy_path, "w") as f:
+                nbformat.write(nb_copy, f)  # type: ignore[no-untyped-call]
     # If the work directory is hidden, patch default norecursepatterns so that the files
     # we created will not get ignored
     if work_dir.startswith("."):

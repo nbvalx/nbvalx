@@ -86,84 +86,156 @@ def test_load_extension(mock_ipython: MockIPythonShell) -> None:
     assert nbvalx.jupyter_magics.IPythonExtension.loaded is True
     assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {}
     assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {}
+    assert nbvalx.jupyter_magics.IPythonExtension.allowed_parameters == {}
+    assert nbvalx.jupyter_magics.IPythonExtension.current_parameters == {}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
-def test_register_run_if_allowed_tags_single(
-    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
+@pytest.mark.parametrize(
+    "register_allowed_magic_entries_function_name,allowed_magic_entries_dict_name",
+    [("register_run_if_allowed_tags", "allowed_tags"), ("register_allowed_parameters", "allowed_parameters")]
+)
+@pytest.mark.parametrize("magic_entry_values", [[True, False], [1, 2], ["a", "b"]])
+def test_register_allowed_magic_entries_single(
+    mock_ipython: MockIPythonShell, register_allowed_magic_entries_function_name: str,
+    allowed_magic_entries_dict_name: str, magic_entry_values: list[bool | int | str]
 ) -> None:
-    """Check registration of a single set of allowed tags."""
+    """Check registration of a single set of allowed magic entries."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
-    assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {"tag": tag_values}
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_allowed_magic_entries_function_name)(
+        "", f"magic_entry: {', '.join(map(repr, magic_entry_values))}")
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, allowed_magic_entries_dict_name) == {
+        "magic_entry": magic_entry_values}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag1_values", [[True, False], [1, 2], ["a", "b"]])
-@pytest.mark.parametrize("tag2_values", [[True, False], [3, 4], ["c", "d"]])
-def test_register_run_if_allowed_tags_multiple(
-    mock_ipython: MockIPythonShell, tag1_values: list[bool | int | str],
-    tag2_values: list[bool | int | str]
+@pytest.mark.parametrize(
+    "register_allowed_magic_entries_function_name,allowed_magic_entries_dict_name",
+    [("register_run_if_allowed_tags", "allowed_tags"), ("register_allowed_parameters", "allowed_parameters")]
+)
+@pytest.mark.parametrize("magic_entry_1_values", [[True, False], [1, 2], ["a", "b"]])
+@pytest.mark.parametrize("magic_entry_2_values", [[True, False], [3, 4], ["c", "d"]])
+def test_register_allowed_magic_entries_multiple(
+    mock_ipython: MockIPythonShell, register_allowed_magic_entries_function_name: str,
+    allowed_magic_entries_dict_name: str, magic_entry_1_values: list[bool | int | str],
+    magic_entry_2_values: list[bool | int | str]
 ) -> None:
-    """Check registration of multiple sets allowed tags."""
+    """Check registration of multiple sets allowed magic entries."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
-        "", f"tag1: {', '.join(map(repr, tag1_values))}\ntag2: {', '.join(map(repr, tag2_values))}")
-    assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {"tag1": tag1_values, "tag2": tag2_values}
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_allowed_magic_entries_function_name)(
+        "",
+        f"magic_entry_1: {', '.join(map(repr, magic_entry_1_values))}\n"
+        f"magic_entry_2: {', '.join(map(repr, magic_entry_2_values))}"
+    )
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, allowed_magic_entries_dict_name) == {
+        "magic_entry_1": magic_entry_1_values, "magic_entry_2": magic_entry_2_values}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag_values", [["a", "b"]])
-def test_register_run_if_allowed_tags_without_quotes(
-    mock_ipython: MockIPythonShell, tag_values: list[str]
+@pytest.mark.parametrize(
+    "register_allowed_magic_entries_function_name,allowed_magic_entries_dict_name",
+    [("register_run_if_allowed_tags", "allowed_tags"), ("register_allowed_parameters", "allowed_parameters")]
+)
+@pytest.mark.parametrize("magic_entry_values", [["a", "b"]])
+def test_register_allowed_magic_entries_without_quotes(
+    mock_ipython: MockIPythonShell, register_allowed_magic_entries_function_name: str,
+    allowed_magic_entries_dict_name: str, magic_entry_values: list[str]
 ) -> None:
-    """Check registration of allowed tags of type string not enclosed within quotes."""
+    """Check registration of allowed magic entries of type string not enclosed within quotes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     with pytest.raises(RuntimeError):
-        nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
-            "", f"tag: {', '.join(map(str, tag_values))}")
-    assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {}
+        getattr(nbvalx.jupyter_magics.IPythonExtension, register_allowed_magic_entries_function_name)(
+            "", f"magic_entry: {', '.join(map(str, magic_entry_values))}")
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, allowed_magic_entries_dict_name) == {}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
-def test_register_run_if_current_tags_single(
-    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
+@pytest.mark.parametrize(
+    "register_allowed_magic_entries_function_name,register_current_magic_entries_function_name,"
+    "current_magic_entries_dict_name",
+    [
+        ("register_run_if_allowed_tags", "register_run_if_current_tags", "current_tags"),
+        ("register_allowed_parameters", "register_current_parameters", "current_parameters")
+    ]
+)
+@pytest.mark.parametrize("magic_entry_values", [[True, False], [1, 2], ["a", "b"]])
+def test_register_current_magic_entries_single(
+    mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
+    register_allowed_magic_entries_function_name: str, register_current_magic_entries_function_name: str,
+    current_magic_entries_dict_name: str, magic_entry_values: list[bool | int | str]
 ) -> None:
-    """Check registration of a single set of current tags."""
+    """Check registration of a single set of current magic entries."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
-    assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {"tag": tag_values[0]}
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_allowed_magic_entries_function_name)(
+        "", f"magic_entry: {', '.join(map(repr, magic_entry_values))}")
+    if register_current_magic_entries_function_name == "register_current_parameters":
+        mock_get_ipython(mock_ipython)
+        assert mock_ipython.cell == ""
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_current_magic_entries_function_name)(
+        "", f"magic_entry = {magic_entry_values[0]!r}")
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, current_magic_entries_dict_name) == {
+        "magic_entry": magic_entry_values[0]}
+    if register_current_magic_entries_function_name == "register_current_parameters":
+        assert mock_ipython.cell == f"magic_entry = {magic_entry_values[0]!r}"
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag1_values", [[True, False], [1, 2], ["a", "b"]])
-@pytest.mark.parametrize("tag2_values", [[True, False], [3, 4], ["c", "d"]])
-def test_register_run_if_current_tags_multiple(
-    mock_ipython: MockIPythonShell, tag1_values: list[bool | int | str],
-    tag2_values: list[bool | int | str]
+@pytest.mark.parametrize(
+    "register_allowed_magic_entries_function_name,register_current_magic_entries_function_name,"
+    "current_magic_entries_dict_name",
+    [
+        ("register_run_if_allowed_tags", "register_run_if_current_tags", "current_tags"),
+        ("register_allowed_parameters", "register_current_parameters", "current_parameters")
+    ]
+)
+@pytest.mark.parametrize("magic_entry_1_values", [[True, False], [1, 2], ["a", "b"]])
+@pytest.mark.parametrize("magic_entry_2_values", [[True, False], [3, 4], ["c", "d"]])
+def test_register_current_magic_entries_multiple(
+    mock_ipython: MockIPythonShell, mock_get_ipython: typing.Callable[[MockIPythonShell], None],
+    register_allowed_magic_entries_function_name: str, register_current_magic_entries_function_name: str,
+    current_magic_entries_dict_name: str, magic_entry_1_values: list[bool | int | str],
+    magic_entry_2_values: list[bool | int | str]
 ) -> None:
-    """Check registration of multiple sets of current tags."""
+    """Check registration of multiple sets of current magic entries."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
-        "", f"tag1: {', '.join(map(repr, tag1_values))}\ntag2: {', '.join(map(repr, tag2_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags(
-        "", f"tag1 = {tag1_values[0]!r}\ntag2 = {tag2_values[0]!r}")
-    assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {"tag1": tag1_values[0], "tag2": tag2_values[0]}
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_allowed_magic_entries_function_name)(
+        "",
+        f"magic_entry_1: {', '.join(map(repr, magic_entry_1_values))}\n"
+        f"magic_entry_2: {', '.join(map(repr, magic_entry_2_values))}"
+    )
+    if register_current_magic_entries_function_name == "register_current_parameters":
+        mock_get_ipython(mock_ipython)
+        assert mock_ipython.cell == ""
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_current_magic_entries_function_name)(
+        "",
+        f"magic_entry_1 = {magic_entry_1_values[0]!r}\n"
+        f"magic_entry_2 = {magic_entry_2_values[0]!r}"
+    )
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, current_magic_entries_dict_name) == {
+        "magic_entry_1": magic_entry_1_values[0], "magic_entry_2": magic_entry_2_values[0]}
+    if register_current_magic_entries_function_name == "register_current_parameters":
+        assert mock_ipython.cell == f"magic_entry_2 = {magic_entry_2_values[0]!r}"
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
-def test_register_run_if_current_tags_without_allowed_tags(
-    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
+@pytest.mark.parametrize(
+    "register_current_magic_entries_function_name,allowed_magic_entries_dict_name",
+    [
+        ("register_run_if_current_tags", "allowed_tags"),
+        ("register_current_parameters", "allowed_parameters")
+    ]
+)
+@pytest.mark.parametrize("magic_entry_values", [[True, False], [1, 2], ["a", "b"]])
+def test_register_current_magic_entries_without_allowed(
+    mock_ipython: MockIPythonShell, register_current_magic_entries_function_name: str,
+    allowed_magic_entries_dict_name: str, magic_entry_values: list[bool | int | str]
 ) -> None:
-    """Check registration of current tag raises when allowed tags have not been set."""
+    """Check registration of current magic entries raises when allowed values have not been set."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     with pytest.raises(AssertionError):
-        nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
-    assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {}
+        getattr(nbvalx.jupyter_magics.IPythonExtension, register_current_magic_entries_function_name)(
+            "", f"magic_entry = {magic_entry_values[0]!r}")
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, allowed_magic_entries_dict_name) == {}
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
@@ -272,15 +344,27 @@ def test_run_if_single_condition_false(
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("tag_values", [[True, False], [1, 2], ["a", "b"]])
+@pytest.mark.parametrize(
+    "register_allowed_magic_entries_function_name,register_current_magic_entries_function_name,"
+    "allowed_magic_entries_dict_name,current_magic_entries_dict_name",
+    [
+        ("register_run_if_allowed_tags", "register_run_if_current_tags", "allowed_tags", "current_tags"),
+        ("register_allowed_parameters", "register_current_parameters", "allowed_parameters", "current_parameters")
+    ]
+)
+@pytest.mark.parametrize("magic_entry_values", [[True, False], [1, 2], ["a", "b"]])
 def test_unload_extension(
-    mock_ipython: MockIPythonShell, tag_values: list[bool | int | str]
+    mock_ipython: MockIPythonShell, register_allowed_magic_entries_function_name: str,
+    register_current_magic_entries_function_name: str, allowed_magic_entries_dict_name: str,
+    current_magic_entries_dict_name: str, magic_entry_values: list[bool | int | str]
 ) -> None:
     """Check deletion of extension attributes."""
     nbvalx.jupyter_magics.load_ipython_extension(mock_ipython)  # type: ignore[arg-type]
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags("", f"tag: {', '.join(map(repr, tag_values))}")
-    nbvalx.jupyter_magics.IPythonExtension.register_run_if_current_tags("", f"tag = {tag_values[0]!r}")
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_allowed_magic_entries_function_name)(
+        "", f"magic_entry: {', '.join(map(repr, magic_entry_values))}")
+    getattr(nbvalx.jupyter_magics.IPythonExtension, register_current_magic_entries_function_name)(
+        "", f"magic_entry = {magic_entry_values[0]!r}")
     nbvalx.jupyter_magics.unload_ipython_extension(mock_ipython)  # type: ignore[arg-type]
     assert nbvalx.jupyter_magics.IPythonExtension.loaded is False
-    assert nbvalx.jupyter_magics.IPythonExtension.allowed_tags == {}
-    assert nbvalx.jupyter_magics.IPythonExtension.current_tags == {}
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, allowed_magic_entries_dict_name) == {}
+    assert getattr(nbvalx.jupyter_magics.IPythonExtension, current_magic_entries_dict_name) == {}
