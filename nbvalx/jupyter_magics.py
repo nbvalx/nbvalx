@@ -87,7 +87,6 @@ class IPythonExtension:
                 cls._convert_to_python_native_types(value.strip())
                 for value in allowed_magic_entry_values_str.split(",")]
             assert all(isinstance(value, type(allowed_magic_entry_values[0])) for value in allowed_magic_entry_values)
-            assert allowed_magic_entry_name not in allowed_magic_entries_dict
             allowed_magic_entries_dict[allowed_magic_entry_name] = allowed_magic_entry_values  # type: ignore[assignment]
 
     @classmethod
@@ -104,11 +103,10 @@ class IPythonExtension:
         for current_magic_entry in current_magic_entries.splitlines():
             current_magic_entry_name, current_magic_entry_value_str = current_magic_entry.split("=")
             current_magic_entry_name = current_magic_entry_name.strip()
-            current_magic_entry_value_str = current_magic_entry_value_str.lstrip()
-            current_magic_entry_value = cls._convert_to_python_native_types(current_magic_entry_value_str.strip())
+            current_magic_entry_value_str = current_magic_entry_value_str.strip()
+            current_magic_entry_value = cls._convert_to_python_native_types(current_magic_entry_value_str)
             assert current_magic_entry_name in allowed_magic_entries_dict
             assert current_magic_entry_value in allowed_magic_entries_dict[current_magic_entry_name]
-            assert current_magic_entry_name not in current_magic_entries_dict
             current_magic_entries_dict[current_magic_entry_name] = current_magic_entry_value
             if process_magic_entry is not None:
                 process_magic_entry(current_magic_entry_name, current_magic_entry_value_str)
