@@ -112,17 +112,17 @@ class IPythonExtension:
                 process_magic_entry(current_magic_entry_name, current_magic_entry_value_str)
 
     @classmethod
-    def register_run_if_allowed_tags(
+    def register_allowed_run_if_tags(
         cls, line: str, cell: str, allowed_tags_dict: dict[str, list[bool] | list[int] | list[str]] | None = None
     ) -> None:
         """Register allowed tags."""
         if allowed_tags_dict is None:
             allowed_tags_dict = cls.allowed_tags
         cls._register_allowed_magic_entries(
-            line, cell, allowed_tags_dict, "register_run_if_allowed_tags")
+            line, cell, allowed_tags_dict, "register_allowed_run_if_tags")
 
     @classmethod
-    def register_run_if_current_tags(
+    def register_current_run_if_tags(
         cls, line: str, cell: str, allowed_tags_dict: dict[str, list[bool] | list[int] | list[str]] | None = None,
         current_tags_dict: dict[str, bool | int | str] | None = None
     ) -> None:
@@ -132,7 +132,7 @@ class IPythonExtension:
         if current_tags_dict is None:
             current_tags_dict = cls.current_tags
         cls._register_current_magic_entries(
-            line, cell, allowed_tags_dict, current_tags_dict, "register_run_if_current_tags", None)
+            line, cell, allowed_tags_dict, current_tags_dict, "register_current_run_if_tags", None)
 
     @classmethod
     def run_if(
@@ -189,11 +189,11 @@ def load_ipython_extension(
 ) -> None:
     """Register magics defined in this module when the extension loads."""
     ipython.register_magic_function(
-        IPythonExtension.register_run_if_allowed_tags,  # type: ignore[arg-type]
-        "cell", "register_run_if_allowed_tags")
+        IPythonExtension.register_allowed_run_if_tags,  # type: ignore[arg-type]
+        "cell", "register_allowed_run_if_tags")
     ipython.register_magic_function(
-        IPythonExtension.register_run_if_current_tags,  # type: ignore[arg-type]
-        "cell", "register_run_if_current_tags")
+        IPythonExtension.register_current_run_if_tags,  # type: ignore[arg-type]
+        "cell", "register_current_run_if_tags")
     ipython.register_magic_function(IPythonExtension.run_if, "cell", "run_if")  # type: ignore[arg-type]
     ipython.register_magic_function(
         IPythonExtension.register_allowed_parameters,  # type: ignore[arg-type]
@@ -214,8 +214,8 @@ def unload_ipython_extension(
     ipython: IPython.core.interactiveshell.InteractiveShell
 ) -> None:
     """Unregister the magics defined in this module when the extension unloads."""
-    del ipython.magics_manager.magics["cell"]["register_run_if_allowed_tags"]
-    del ipython.magics_manager.magics["cell"]["register_run_if_current_tags"]
+    del ipython.magics_manager.magics["cell"]["register_allowed_run_if_tags"]
+    del ipython.magics_manager.magics["cell"]["register_current_run_if_tags"]
     del ipython.magics_manager.magics["cell"]["register_allowed_parameters"]
     del ipython.magics_manager.magics["cell"]["register_current_parameters"]
     del ipython.magics_manager.magics["cell"]["run_if"]

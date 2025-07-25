@@ -164,11 +164,11 @@ def sessionstart(session: pytest.Session) -> None:
                 if cell.source.startswith("%load_ext nbvalx"):
                     load_ext_present = True
                     assert len(cell.source.splitlines()) == 1, "Use a standalone cell for %load_ext nbvalx"
-                elif cell.source.startswith("%%register_run_if_allowed_tags"):
+                elif cell.source.startswith("%%register_allowed_run_if_tags"):
                     assert load_ext_present
                     lines = cell.source.splitlines()
-                    assert lines[0] == "%%register_run_if_allowed_tags"
-                    nbvalx.jupyter_magics.IPythonExtension.register_run_if_allowed_tags(
+                    assert lines[0] == "%%register_allowed_run_if_tags"
+                    nbvalx.jupyter_magics.IPythonExtension.register_allowed_run_if_tags(
                         "", "\n".join(lines[1:]), allowed_tags)
                 elif cell.source.startswith("%%register_allowed_parameters"):
                     assert load_ext_present
@@ -258,14 +258,14 @@ def sessionstart(session: pytest.Session) -> None:
                     if cell.cell_type == "code":
                         if (
                             cell.source.startswith("%load_ext nbvalx")
-                            or cell.source.startswith("%%register_run_if_allowed_tags")
+                            or cell.source.startswith("%%register_allowed_run_if_tags")
                             or cell.source.startswith("%%register_allowed_parameters")
                         ):
                             if not collapse:
                                 cells_magic_entry.append(cell_magic_entry)
-                        elif cell.source.startswith("%%register_run_if_current_tags"):
+                        elif cell.source.startswith("%%register_current_run_if_tags"):
                             if not collapse:
-                                lines = ["%%register_run_if_current_tags"]
+                                lines = ["%%register_current_run_if_tags"]
                                 for ((magic_entry_type, magic_entry_name), magic_entry_value) in zip(
                                     allowed_magic_entries_keys, magic_entry_values
                                 ):
