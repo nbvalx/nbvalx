@@ -533,21 +533,36 @@ IPython.get_ipython().set_custom_exc(
         # Add parallel support
         if np > 1:
             for (nb_copy_path, nb_copy) in nb_copies.items():
-                # Add the px magic to every existing cell
-                _add_cell_magic(nb_copy, "%%px --no-stream" if ipynb_action != "create-notebooks" else "%%px")
-                # Add a cell on top to start a new ipyparallel cluster
-                cluster_start_code = f"""import ipyparallel as ipp
+                # Determine if notebook was already using ipyparallel
+                uses_ipyparallel = False
+                for cell in nb_copy.cells:
+                    if cell.cell_type == "code" and "%%px" in cell.source:
+                        uses_ipyparallel = True
+                        break
+                if not uses_ipyparallel:
+                    # Add the px magic to every existing cell
+                    _add_cell_magic(nb_copy, "%%px --no-stream" if ipynb_action != "create-notebooks" else "%%px")
+                    # Add a cell on top to start a new ipyparallel cluster
+                    cluster_start_code = f"""import ipyparallel as ipp
 
 cluster = ipp.Cluster(engines="MPI", profile="mpi", n={np})
 cluster.start_and_connect_sync()"""
-                cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)  # type: ignore[no-untyped-call]
-                cluster_start_cell.id = "cluster_start"
-                nb_copy.cells.insert(0, cluster_start_cell)
-                # Add a cell at the end to stop the ipyparallel cluster
-                cluster_stop_code = """cluster.stop_cluster_sync()"""
-                cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)  # type: ignore[no-untyped-call]
-                cluster_stop_cell.id = "cluster_stop"
-                nb_copy.cells.append(cluster_stop_cell)
+                    cluster_start_cell = nbformat.v4.new_code_cell(cluster_start_code)  # type: ignore[no-untyped-call]
+                    cluster_start_cell.id = "cluster_start"
+                    nb_copy.cells.insert(0, cluster_start_cell)
+                    # Add a cell at the end to stop the ipyparallel cluster
+                    cluster_stop_code = """cluster.stop_cluster_sync()"""
+                    cluster_stop_cell = nbformat.v4.new_code_cell(cluster_stop_code)  # type: ignore[no-untyped-call]
+                    cluster_stop_cell.id = "cluster_stop"
+                    nb_copy.cells.append(cluster_stop_cell)
+                elif ipynb_action != "create-notebooks":
+                    # Add a cell on top to skip the notebook altogether, as setting np > 1 makes no sense here
+                    xfail_uses_ipyparallel_code = """\
+# PYTEST_XFAIL_IN_PARALLEL_AND_SKIP_NEXT: already uses ipyparallel
+assert False, 'This code already uses ipyparallel and hence testing it is skipped for np > 1'"""
+                    xfail_uses_ipyparallel_cell = nbformat.v4.new_code_cell(xfail_uses_ipyparallel_code)  # type: ignore[no-untyped-call]
+                    xfail_uses_ipyparallel_cell.id = "xfail_uses_ipyparallel"
+                    nb_copy.cells.insert(0, xfail_uses_ipyparallel_cell)
         # Write modified notebooks to the work directory
         for (nb_copy_path, nb_copy) in nb_copies.items():
             nb_copy_path.parent.mkdir(parents=True, exist_ok=True)
