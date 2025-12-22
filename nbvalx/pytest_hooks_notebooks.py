@@ -94,8 +94,10 @@ def sessionstart(session: pytest.Session) -> None:
     # List existing files
     files = list()
     dirs = list()
-    for arg in session.config.args:
-        collection_argument = _pytest.main.resolve_collection_argument(session.config.invocation_params.dir, arg)
+    for (i_arg, arg) in enumerate(session.config.args):
+        collection_argument = _pytest.main.resolve_collection_argument(
+            session.config.invocation_params.dir, arg, i_arg
+        )
         dir_or_file = collection_argument.path
         if dir_or_file.is_dir():
             dir_or_file_candidates = [dir_entry for dir_entry in dir_or_file.rglob("*")]
