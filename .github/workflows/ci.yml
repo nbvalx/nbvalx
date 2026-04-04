@@ -35,14 +35,14 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           ref: ${{ inputs.ref }}
       - name: Install OpenMPI
         run: |
           sudo apt install libopenmpi-dev
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Manually install pytest of the v8.* series
@@ -144,7 +144,7 @@ jobs:
         run: |
           python3 -m nbqa mypy .
       - name: Check for stray outputs, counts and metadata in notebooks test files
-        uses: RBniCS/check-jupyter-metadata-action@main
+        uses: RBniCS/check-jupyter-metadata-action@6df653e5d45f7620d888c6a1bd85d07b4f903045  # v1.0.0
         with:
           pattern: "tests/notebooks/data/**/*.ipynb"
       - name: Run notebooks tests (serial, without collapse)
@@ -174,19 +174,9 @@ jobs:
           rm .coverage*
       - name: Upload notebooks logs as an artifact in case of failure
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: "notebooks-logs-${{ matrix.python-version }}"
           path: |
             **/.ipynb_pytest/**/*.log*
           include-hidden-files: true
-
-  warn:
-    runs-on: ubuntu-latest
-    if: github.repository == 'nbvalx/nbvalx' && github.ref == 'refs/heads/main' && github.event_name == 'schedule'
-    steps:
-      - name: Warn if scheduled workflow is about to be disabled
-        uses: fem-on-colab/warn-workflow-about-to-be-disabled-action@main
-        with:
-          workflow-filename: ci.yml
-          days-elapsed: 50
