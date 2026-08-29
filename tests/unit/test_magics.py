@@ -75,7 +75,7 @@ def mock_get_ipython() -> typing.Callable[[MockIPythonShell], None]:
             """Replace IPython.get_ipython() function."""
             return mock_ipython
 
-        IPython.get_ipython = _  # type: ignore[assignment, attr-defined]
+        IPython.get_ipython = _
 
     return mock_get_ipython_callable
 

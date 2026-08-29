@@ -63,7 +63,7 @@ class IPythonExtension:
     @classmethod
     def _ipython_runner(cls, code: str) -> None:
         """Run a code through IPython."""
-        result = IPython.get_ipython().run_cell(code)  # type: ignore[attr-defined, union-attr]
+        result = IPython.get_ipython().run_cell(code)
         try:  # pragma: no cover
             result.raise_error()
         except Exception as e:  # pragma: no cover
