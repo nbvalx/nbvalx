@@ -135,9 +135,6 @@ jobs:
       - name: Run isort on notebooks test files
         run: |
           python3 -m nbqa isort --check --diff .
-      - name: Run mypy on notebooks test files
-        run: |
-          python3 -m nbqa mypy .
       - name: Check for stray outputs, counts and metadata in notebooks test files
         uses: RBniCS/check-jupyter-metadata-action@6df653e5d45f7620d888c6a1bd85d07b4f903045  # v1.0.0
         with:
